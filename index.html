@@ -191,7 +191,7 @@ select.inp{appearance:none}
 .trbox .out{font-size:20px;line-height:1.7;font-family:"Noto Sans Myanmar",var(--body)}
 .trbox .tip{color:var(--ink-2);font-size:13px;margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
 .cluster{position:relative;width:100%;height:0;margin:22px 0 10px}
-.cluster .cp{position:absolute;margin:0;padding:8px 8px 7px;background:var(--polaroid);border-radius:3px;
+.cluster .cp{position:absolute;margin:0;padding:5.5% 5.5% 3.85%;background:var(--polaroid);border-radius:3px;
   transform:translate(-50%,-50%) rotate(var(--r));box-shadow:0 9px 22px rgba(50,52,40,.26)}
 .cluster .cp img{width:100%;display:block;aspect-ratio:1/1.12;object-fit:cover;background:#D6D3C4}
 .cluster .cp .tape{width:56%;height:15px;top:-7px;left:22%;transform:rotate(-5deg)}
@@ -199,6 +199,10 @@ select.inp{appearance:none}
 .cluster.arr{touch-action:none}
 .cluster.arr .cp{cursor:grab;touch-action:none}
 .cluster.arr .cp.sel{outline:2.5px solid var(--red);outline-offset:3px;cursor:grabbing}
+.cluster.arr .cp .rz{position:absolute;right:-13px;bottom:-13px;width:28px;height:28px;border-radius:50%;
+  background:var(--red);border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:nwse-resize;
+  touch-action:none;z-index:99;display:grid;place-items:center;color:#fff;font-size:13px;line-height:1}
+.arrbar input[type=range]{flex:1 1 100%;accent-color:var(--red);height:26px}
 .arena{background:var(--canvas);border-radius:14px;padding:14px;margin-top:12px;
   background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
   background-size:30px 30px}
@@ -286,6 +290,10 @@ audio{width:100%;margin-top:11px}
         <button class="btn" id="btnLoc">Locate me</button>
         <button class="btn" id="btnFit">Fit</button>
       </div>
+      <div class="row" style="margin:0 0 14px">
+        <select class="inp" id="segA" style="flex:1 1 150px;width:auto" aria-label="Measure from"></select>
+        <select class="inp" id="segB" style="flex:1 1 150px;width:auto" aria-label="Measure to"></select>
+      </div>
       <div class="mapwrap">
         <div id="map"></div>
         <div class="mapempty" id="mapEmpty" hidden>
@@ -294,6 +302,9 @@ audio{width:100%;margin-top:11px}
         </div>
       </div>
       <div class="readout" id="mapStats"></div>
+      <p id="mapNote" style="color:var(--ink-2);font-size:12.5px;line-height:1.5;margin:10px 2px 0"></p>
+      <div class="sec" id="legHead" hidden>Leg by leg</div>
+      <div id="legs"></div>
     </section>
 
     <section class="view" id="v-tr">
@@ -516,7 +527,7 @@ async function del(st,k){if(memOnly){mem[st].delete(k);return}await idb(st,'read
 async function get(st,k){if(memOnly)return mem[st].get(k);return idb(st,'readonly',s=>s.get(k))}
 async function all(st){if(memOnly)return [...mem[st].values()];return idb(st,'readonly',s=>s.getAll())}
 
-const S={entries:[],trips:[],phrases:[],cfg:{lang:'th',stt:'en-SG',units:'km'},view:'trips',openTrip:null,tab:'ov',mapTrip:'all'};
+const S={entries:[],trips:[],phrases:[],cfg:{lang:'th',stt:'en-SG',units:'km'},view:'trips',openTrip:null,tab:'ov',mapTrip:'all',segA:'',segB:''};
 let draft=null,tripDraft=null,urls=[];
 const freeURLs=()=>{urls.forEach(URL.revokeObjectURL);urls=[]};
 const url=b=>{const u=URL.createObjectURL(b);urls.push(u);return u};
@@ -1089,6 +1100,32 @@ function bindDrag(){
     };
     const up=ev=>{sx=undefined;try{fig.releasePointerCapture(ev.pointerId)}catch(e){}};
     fig.onpointerup=up;fig.onpointercancel=up;
+
+    if(i===arrSel){
+      const hd=document.createElement('span');
+      hd.className='rz';hd.textContent='⤢';hd.setAttribute('aria-label','Drag to resize');
+      fig.appendChild(hd);
+      let d0,w0,ccx,ccy;
+      hd.onpointerdown=ev=>{
+        ev.preventDefault();ev.stopPropagation();
+        const fr=fig.getBoundingClientRect();
+        ccx=fr.left+fr.width/2;ccy=fr.top+fr.height/2;
+        d0=Math.max(12,Math.hypot(ev.clientX-ccx,ev.clientY-ccy));
+        w0=pgeom(arrP[i],slots(arrP.length)[i]).w;
+        try{hd.setPointerCapture(ev.pointerId)}catch(e){}
+      };
+      hd.onpointermove=ev=>{
+        if(d0===undefined)return;
+        ev.stopPropagation();
+        const g=pgeom(arrP[i],slots(arrP.length)[i]);
+        const d=Math.hypot(ev.clientX-ccx,ev.clientY-ccy);
+        arrP[i].w=Math.max(12,Math.min(94,w0*d/d0));
+        arrP[i].x=g.x;arrP[i].y=g.y;if(arrP[i].r==null)arrP[i].r=g.r;
+        fig.style.width=arrP[i].w+'%';
+      };
+      const hup=ev=>{if(d0!==undefined){d0=undefined;drawArrBar()}try{hd.releasePointerCapture(ev.pointerId)}catch(e){}};
+      hd.onpointerup=hup;hd.onpointercancel=hup;
+    }
   });
 }
 function drawArrBar(){
@@ -1096,21 +1133,32 @@ function drawArrBar(){
   if(arrSel<0||!arrP[arrSel]){bar.hidden=true;return}
   bar.hidden=false;
   const p=arrP[arrSel];
+  const gsel=pgeom(p,slots(arrP.length)[arrSel]);
   bar.innerHTML=`<input class="inp" id="arrCap" placeholder="Write on this photo" value="${esc(p.cap||'')}" style="flex:1 1 100%;width:auto">
-    <button class="sq" data-a="sm" aria-label="Smaller">−</button><button class="sq" data-a="lg" aria-label="Bigger">+</button>
+    <span class="mono" style="flex:1 1 100%;margin-top:2px">Size — or drag the red corner</span>
+    <input type="range" id="arrW" min="12" max="94" step="1" value="${Math.round(gsel.w)}">
     <button class="sq" data-a="rl" aria-label="Tilt left">↺</button><button class="sq" data-a="rr" aria-label="Tilt right">↻</button>
     <button class="sq" data-a="fr" aria-label="Bring to front">↑</button>
     <button class="btn dgr" data-a="rm" style="margin-left:auto;padding:9px 13px">Remove</button>`;
-  $('#arrCap').oninput=ev=>{p.cap=ev.target.value};
-  $('#arrCap').onchange=()=>drawArena();
+  // Update the caption in place — re-rendering on blur used to swallow the next tap.
+  $('#arrCap').oninput=ev=>{
+    p.cap=ev.target.value;
+    const f=$(`#arrArena .cp[data-i="${arrSel}"]`);if(!f)return;
+    let c=f.querySelector('figcaption');
+    if(!c&&p.cap){c=document.createElement('figcaption');f.appendChild(c)}
+    if(c)c.textContent=p.cap;
+  };
+  $('#arrW').oninput=ev=>{
+    const g=pgeom(p,slots(arrP.length)[arrSel]);
+    p.w=+ev.target.value;p.x=g.x;p.y=g.y;if(p.r==null)p.r=g.r;
+    const f=$(`#arrArena .cp[data-i="${arrSel}"]`);if(f)f.style.width=p.w+'%';
+  };
   $$('#arrBar [data-a]').forEach(b=>b.onclick=()=>{
     const g=pgeom(p,slots(arrP.length)[arrSel]),a=b.dataset.a;
     if(a==='rm'){
       if(!confirm('Take this photo off the page?'))return;
       arrP.splice(arrSel,1);arrSel=-1;drawArena();return;
     }
-    if(a==='sm')p.w=Math.max(14,g.w-5);
-    if(a==='lg')p.w=Math.min(92,g.w+5);
     if(a==='rl')p.r=g.r-4;
     if(a==='rr')p.r=g.r+4;
     if(a==='fr')p.z=Math.max(0,...arrP.map(q=>q.z||0))+1;
@@ -1223,27 +1271,56 @@ function renderMap(){
   layer.clearLayers();
   const pts=S.entries.filter(e=>e.lat!=null&&(S.mapTrip==='all'||e.tripId===S.mapTrip)).sort((a,b)=>a.ts-b.ts);
   $('#mapEmpty').hidden=pts.length>0;
-  if(!pts.length){$('#mapStats').innerHTML='<div style="color:var(--ink-2)">Pin a page and it lands here as a numbered station.</div>';return}
-  if(pts.length>1)L.polyline(pts.map(p=>[p.lat,p.lng]),{color:'#E0522F',weight:2.5,opacity:.85,dashArray:'1 7',lineCap:'round'}).addTo(layer);
+  if(!pts.length){
+    $('#mapStats').innerHTML='<div style="color:var(--ink-2)">Pin a page and it lands here as a numbered station.</div>';
+    $('#mapNote').textContent='';$('#legHead').hidden=true;$('#legs').innerHTML='';
+    $('#segA').innerHTML=$('#segB').innerHTML='';return;
+  }
+  // Start and end points: measure the whole trail, or any stretch of it.
+  const opts=pts.map((e,i)=>`<option value="${e.id}">${pad(i+1)} · ${esc(e.place||e.title||fmtShort(e.ts))}</option>`).join('');
+  $('#segA').innerHTML='<option value="">From the start</option>'+opts;
+  $('#segB').innerHTML='<option value="">To the end</option>'+opts;
+  $('#segA').value=pts.some(e=>e.id===S.segA)?S.segA:'';
+  $('#segB').value=pts.some(e=>e.id===S.segB)?S.segB:'';
+  let ia=S.segA?pts.findIndex(e=>e.id===S.segA):0;
+  let ib=S.segB?pts.findIndex(e=>e.id===S.segB):pts.length-1;
+  if(ia<0)ia=0;if(ib<0)ib=pts.length-1;
+  if(ia>ib){const sw=ia;ia=ib;ib=sw}
+  const seg=pts.slice(ia,ib+1);
+  if(seg.length>1)L.polyline(seg.map(p=>[p.lat,p.lng]),{color:'#E0522F',weight:2.5,opacity:.85,dashArray:'1 7',lineCap:'round'}).addTo(layer);
   pts.forEach((e,i)=>{
     const m=L.marker([e.lat,e.lng],{icon:L.divIcon({className:'',html:`<div class="station">${i+1}</div>`,iconSize:[27,27],iconAnchor:[13,13]})}).addTo(layer);
     m.bindPopup(`<b>${esc(e.title)}</b><br><span style="color:#7C7C6E">${esc(fmtD(e.ts))}</span><br><a href="#" data-open="${e.id}">Open note</a>`);
     m.on('popupopen',ev=>{const a=ev.popup.getElement().querySelector('[data-open]');if(a)a.onclick=x=>{x.preventDefault();map.closePopup();viewEntry(e.id)}});
   });
-  let km=0;for(let i=1;i<pts.length;i++)km+=hav(pts[i-1],pts[i]);
-  const dv=S.cfg.units==='mi'?km*.621371:km, un=S.cfg.units==='mi'?'mi':'km';
-  $('#mapStats').innerHTML=`<div><b>${pts.length}</b><span>stations</span></div>
+  const mi=S.cfg.units==='mi',un=mi?'mi':'km',cv=d=>mi?d*.621371:d;
+  let km=0;for(let i=1;i<seg.length;i++)km+=hav(seg[i-1],seg[i]);
+  const dv=cv(km);
+  $('#mapStats').innerHTML=`<div><b>${seg.length}</b><span>stations</span></div>
     <div><b>${dv.toFixed(dv>100?0:1)}</b><span>${un} of trail</span></div>
-    <div><b>${new Set(pts.map(p=>dayKey(p.ts))).size}</b><span>days out</span></div>
-    <div><b>${new Set(pts.map(p=>p.place).filter(Boolean)).size}</b><span>places</span></div>`;
-  fit(pts);
+    <div><b>${new Set(seg.map(p=>dayKey(p.ts))).size}</b><span>days out</span></div>
+    <div><b>${new Set(seg.map(p=>p.place).filter(Boolean)).size}</b><span>places</span></div>`;
+  $('#mapNote').textContent=seg.length<2
+    ? 'One station — nothing to measure yet. Pin a second page.'
+    : `Measured station ${pad(ia+1)} to ${pad(ib+1)}: straight-line hops between your pins, added up in the order you logged them. It is not road or walking distance, so the real journey was longer.`;
+  $('#legHead').hidden=seg.length<2;
+  $('#legs').innerHTML=seg.slice(1).map((e,i)=>{
+    const d=cv(hav(seg[i],e));
+    return `<div class="phr"><div style="min-width:0">
+      <div style="font-size:14.5px">${pad(ia+i+1)} → ${pad(ia+i+2)}</div>
+      <div class="b">${esc(seg[i].place||seg[i].title||'—')} → ${esc(e.place||e.title||'—')}</div></div>
+      <span class="mono" style="color:var(--red);flex:none">${d.toFixed(1)} ${un}</span></div>`;
+  }).join('');
+  fit(seg);
 }
 function fit(pts){
   const p=pts||S.entries.filter(e=>e.lat!=null&&(S.mapTrip==='all'||e.tripId===S.mapTrip));
   if(!p.length||!map)return;
   map.fitBounds(L.latLngBounds(p.map(x=>[x.lat,x.lng])).pad(.25),{maxZoom:15});
 }
-$('#mapTrip').onchange=e=>{S.mapTrip=e.target.value;renderMap()};
+$('#mapTrip').onchange=e=>{S.mapTrip=e.target.value;S.segA=S.segB='';renderMap()};
+$('#segA').onchange=e=>{S.segA=e.target.value;renderMap()};
+$('#segB').onchange=e=>{S.segB=e.target.value;renderMap()};
 $('#btnFit').onclick=()=>fit();
 $('#mapPin').onclick=()=>{newEntry();setTimeout(()=>$('#btnPin').click(),350)};
 $('#btnLoc').onclick=()=>{
@@ -1447,7 +1524,7 @@ function polaroid(x,img,cx,top,pw,rot,caption,s){
   return top+ph*Math.cos(Math.abs(rot))+18*s;
 }
 function polaroidAt(x,img,cx,cy,pw,rot,s,cap){
-  const p=Math.max(5*s,pw*0.055),iw=pw-p*2,ih=iw*1.12;
+  const p=pw*0.055,iw=pw-p*2,ih=iw*1.12;
   const fs=Math.max(19*s,pw*0.11),lh=fs*1.18;
   let lines=[];
   if(cap){x.font=`600 ${fs}px Caveat`;ls(x,'0px');lines=wrapT(x,cap,iw).slice(0,2)}
@@ -1527,7 +1604,7 @@ async function drawCard(){
     x.fillText(`${fmtShort(t.start)} – ${fmtShort(addDays(t.start,total-1))}`.toUpperCase(),M,y+28*s);
     ls(x,'0px');y+=76*s;
 
-    const ph=[];for(const e of en)for(const p of (e.photos||[]))ph.push(p);
+    const ph=[];for(const e of en)for(const p of (e.photos||[]))ph.push({id:p.id,cap:p.cap});
     const avail=H-foot-y-(158*s)-(28*s);
     if(ph.length&&avail>190*s){
       const nn=Math.min(ph.length,9),bandW=Math.min(CW,avail/(slotsH(nn)/100));
@@ -1590,8 +1667,12 @@ async function drawCard(){
     ls(x,'0px');
     y+=R*2+(tight?18:34)*s;
 
-    const photos=[];for(const e of rows)for(const p of (e.photos||[]))photos.push({...p,cap:p.cap||e.title});
-    const body=(rows.find(e=>(e.note||e.audio?.transcript))||{});
+    // The page draws one cluster per note, so the card must too — a hand-dragged
+    // position is a percentage of ITS note's box, and merging notes moves everything.
+    const withP=rows.filter(e=>(e.photos||[]).length).sort((a,b)=>b.photos.length-a.photos.length);
+    const lead=withP[0]||rows[0]||{};
+    const photos=(lead.photos||[]).map(q=>({...q,cap:q.cap||lead.title}));
+    const body=(lead.note||(lead.audio&&lead.audio.transcript))?lead:(rows.find(e=>(e.note||e.audio?.transcript))||{});
     const text=(body.note||body.audio?.transcript||'').trim();
     const tags=[...new Set(rows.flatMap(e=>e.tags||[]))];
 
