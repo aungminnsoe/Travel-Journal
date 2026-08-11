@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Waypoint — travel scrapbook</title>
+<meta name="theme-color" content="#EFEDE4">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Caveat:wght@500;600&family=Public+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&family=Noto+Sans+Myanmar:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EFEDE4; --canvas:#DFE2DA; --grid:rgba(120,130,112,.16);
+  --card:#FBF8EE; --polaroid:#F8F5EB; --manila:#F3EEDC;
+  --sage:#C6D2BA; --sage-2:#AFBFA0; --sage-ink:#4A5741;
+  --ink:#33332C; --ink-2:#7C7C6E; --line:#DAD6C6;
+  --red:#E0522F; --black:#1E1E1C;
+  --disp:"Instrument Serif",Georgia,serif;
+  --hand:"Caveat",cursive;
+  --body:"Public Sans",system-ui,sans-serif;
+  --mono:"DM Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;overscroll-behavior-y:none}
+:where(button,input,textarea,select){font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;color:inherit}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px;border-radius:6px}
+.mono{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+.hand{font-family:var(--hand);font-size:21px;line-height:1.45}
+
+/* ---------- shell ---------- */
+.app{min-height:100dvh;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px 12px;background:var(--paper)}
+.top .ttl{flex:1;min-width:0;text-align:center}
+.brand{font-family:var(--disp);font-size:23px;letter-spacing:.01em;flex:1}
+.brand span{font-family:"Noto Sans Myanmar",var(--body);font-size:12px;color:var(--ink-2);margin-left:7px}
+.ico{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;color:var(--ink)}
+.ico:hover{background:#0000000d}
+.ico svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+main{flex:1;padding:0 18px 118px;max-width:760px;width:100%;margin:0 auto}
+.view{display:none}.view.on{display:block;animation:fade .3s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.nav{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 12px);z-index:50;
+  display:flex;align-items:center;gap:2px;padding:6px;border-radius:22px;background:#FFFDF6EE;
+  border:1px solid var(--line);backdrop-filter:blur(10px);box-shadow:0 10px 28px rgba(60,60,40,.16)}
+.nav button{display:grid;place-items:center;gap:3px;width:60px;padding:8px 0;border-radius:16px;color:var(--ink-2)}
+.nav button svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.nav button small{font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase}
+.nav button.on{color:var(--ink);background:var(--sage)}
+.nav .add{background:var(--black);color:#fff;width:52px;height:44px;border-radius:16px}
+.nav .add:hover{background:#000}
+
+/* ---------- home ---------- */
+.road{font-family:var(--disp);font-size:19px;margin:6px 0 16px;color:var(--ink-2)}
+.road b{color:var(--ink);font-weight:400}
+.trip{display:block;width:100%;text-align:left;background:var(--sage);border-radius:20px;padding:18px 20px 16px;
+  position:relative;overflow:hidden;color:var(--sage-ink);margin-bottom:14px}
+.trip:hover{filter:brightness(1.02)}
+.trip .st{display:flex;justify-content:space-between;align-items:center}
+.trip h2{font-family:var(--disp);font-size:38px;line-height:1;margin:14px 0 4px;color:#2F3A28;font-weight:400}
+.trip .dt{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase}
+.trip .ft{display:flex;justify-content:space-between;align-items:center;margin-top:20px;
+  border-top:1px solid rgba(74,87,65,.22);padding-top:12px}
+.trip .go{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;display:flex;gap:7px;align-items:center}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;animation:blink 2s infinite}
+@keyframes blink{50%{opacity:.35}}
+.note{display:flex;gap:14px;align-items:center;width:100%;text-align:left;background:var(--card);
+  border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:11px;position:relative}
+.note:hover{transform:translateY(-1px)}
+.note img{width:66px;height:66px;object-fit:cover;border-radius:11px;flex:none;background:var(--manila)}
+.note .ph{width:66px;height:66px;border-radius:11px;flex:none;background:var(--manila);display:grid;place-items:center;
+  font-family:var(--disp);font-size:23px;color:var(--ink-2)}
+.note b{display:block;font-family:var(--disp);font-size:21px;font-weight:400;line-height:1.2}
+.note .sub{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);margin-top:5px}
+.note .aud{position:absolute;right:12px;bottom:12px;font-family:var(--mono);font-size:10px;color:var(--red);
+  display:flex;align-items:center;gap:5px}
+.sec{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2);margin:26px 0 12px}
+
+/* ---------- trip detail ---------- */
+.crumb{display:flex;align-items:center;gap:10px;padding:2px 0 12px}
+.crumb .c{flex:1;text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:0 0 14px;scrollbar-width:none;-ms-overflow-style:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:none;padding:10px 17px;border-radius:99px;background:var(--card);border:1px solid var(--line);
+  font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.tabs button.on{background:var(--black);color:#F5F2E8;border-color:var(--black)}
+
+.canvas{background:var(--canvas);border-radius:18px;padding:26px 18px 34px;position:relative;overflow:hidden;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:38px 38px}
+.daybadge{width:106px;height:106px;border:2px dashed rgba(60,60,45,.4);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;margin-bottom:-14px;position:relative;z-index:2}
+.daybadge{flex-direction:column;gap:2px}
+.daybadge b{font-family:var(--disp);font-size:44px;color:var(--red);line-height:.9;font-weight:400}
+.daybadge span{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:#5B5B4C}
+.tape{position:absolute;width:78px;height:26px;top:-12px;border-radius:2px;transform:rotate(-6deg);
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.5) 0 3px,transparent 3px 7px),rgba(198,210,186,.82);
+  box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.tape.b{background:repeating-linear-gradient(90deg,rgba(255,255,255,.55) 0 3px,transparent 3px 7px),rgba(232,222,196,.88)}
+.pol{position:relative;background:var(--polaroid);padding:12px 12px 8px;border-radius:3px;
+  box-shadow:0 10px 22px rgba(50,52,40,.2);max-width:min(300px,84%);margin:22px 0}
+.pol img{width:100%;display:block;aspect-ratio:3/3.6;object-fit:cover;background:#CFCDBE}
+.pol figcaption{font-family:var(--hand);font-size:24px;text-align:center;padding:9px 4px 3px;line-height:1.2}
+.notecard{position:relative;background:var(--card);border-radius:3px;padding:14px 16px 16px;margin:26px 0;
+  box-shadow:0 8px 18px rgba(50,52,40,.16);max-width:min(340px,92%);
+  background-image:repeating-linear-gradient(transparent 0 30px,rgba(140,140,120,.22) 30px 31px);
+  background-position:0 22px}
+.notecard .lb{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:6px}
+.notecard p{font-family:var(--hand);font-size:22px;line-height:31px;margin:0;white-space:pre-wrap}
+.rtag{font-family:var(--hand);font-size:22px;color:var(--red);display:inline-block;margin:4px 12px 4px 0;
+  border-bottom:2px solid rgba(224,82,47,.55);padding-bottom:1px}
+.audcard{display:flex;align-items:center;gap:12px;background:var(--manila);border-radius:12px;padding:11px 14px;
+  margin:22px 0;box-shadow:0 6px 14px rgba(50,52,40,.14);max-width:min(340px,92%)}
+.audcard .pl{width:34px;height:34px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;flex:none}
+.audcard .pl svg{width:14px;height:14px;fill:currentColor;stroke:none}
+.right{margin-left:auto!important;margin-right:0!important}
+.stack{display:flex;flex-direction:column;align-items:flex-start}
+.daystat{background:var(--sage);border-radius:16px;padding:14px 16px;margin-bottom:6px;color:var(--sage-ink)}
+.daystat .r1{display:flex;justify-content:space-between;align-items:baseline}
+.daystat h3{font-family:var(--disp);font-size:27px;margin:2px 0 0;font-weight:400;color:#2F3A28}
+.daystat .nums{display:flex;gap:22px;margin-top:12px;border-top:1px solid rgba(74,87,65,.22);padding-top:10px}
+.daystat .nums b{font-family:var(--disp);font-size:20px;font-weight:400;display:block;line-height:1.1}
+.daystat .nums span{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.ovrow{display:flex;gap:14px;align-items:flex-start;width:100%;text-align:left;background:var(--card);
+  border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:9px}
+.ovrow .n{font-family:var(--mono);font-size:13px;color:var(--red);flex:none;padding-top:2px}
+.ovrow .pl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.ovrow p{margin:4px 0 0;font-family:var(--disp);font-size:19px;line-height:1.3}
+.empty{text-align:center;padding:34px 20px;color:var(--ink-2)}
+.empty p{font-family:var(--hand);font-size:23px;color:#6E6E5E;margin:8px 0 18px}
+
+/* ---------- buttons ---------- */
+.btn{padding:12px 17px;border-radius:13px;background:var(--card);border:1px solid var(--line);
+  display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.btn:hover{background:#fff}
+.btn.pri{background:var(--black);border-color:var(--black);color:#F5F2E8;flex:1}
+.btn.dgr{color:var(--red);border-color:#E7C6BC}
+.row{display:flex;gap:9px;flex-wrap:wrap}
+.pick{padding:9px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink-2)}
+.pick.on{background:var(--sage);border-color:var(--sage-2);color:var(--sage-ink);font-weight:600}
+
+/* ---------- sheets ---------- */
+.scrim{position:fixed;inset:0;background:rgba(40,42,32,.5);z-index:60;opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;z-index:70;left:0;right:0;bottom:0;max-height:94dvh;overflow:auto;background:var(--paper);
+  border-radius:24px 24px 0 0;transform:translateY(101%);transition:transform .32s cubic-bezier(.32,.72,0,1);
+  padding:8px 18px calc(env(safe-area-inset-bottom) + 22px);box-shadow:0 -8px 40px rgba(0,0,0,.2)}
+.sheet.on{transform:none}
+@media(min-width:760px){.sheet{left:50%;right:auto;width:660px;transform:translate(-50%,101%)}.sheet.on{transform:translate(-50%,0)}}
+.grab{width:36px;height:4px;border-radius:9px;background:var(--line);margin:6px auto 14px}
+.sheet h2{font-family:var(--disp);font-size:29px;font-weight:400;margin:0 0 2px}
+.lab{display:block;margin:18px 0 7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+.inp{width:100%;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px 14px;color:var(--ink)}
+.inp::placeholder{color:#A5A597}
+textarea.inp{min-height:110px;resize:vertical;font-family:var(--hand);font-size:21px;line-height:1.5}
+select.inp{appearance:none}
+.sticky{position:sticky;bottom:0;background:linear-gradient(transparent,var(--paper) 30%);padding:20px 0 4px;margin-top:22px;display:flex;gap:9px}
+.recwrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0 6px}
+.recbtn{width:78px;height:78px;border-radius:50%;background:var(--red);display:grid;place-items:center;
+  box-shadow:0 8px 24px rgba(224,82,47,.36)}
+.recbtn:hover{filter:brightness(1.06)}
+.recbtn i{width:26px;height:26px;border-radius:50%;background:#fff;display:block;transition:all .22s}
+.recbtn.live i{border-radius:5px;width:22px;height:22px}
+.recbtn.live{animation:ring 1.5s ease-out infinite}
+@keyframes ring{0%{box-shadow:0 0 0 0 rgba(224,82,47,.45)}100%{box-shadow:0 0 0 22px rgba(224,82,47,0)}}
+.rectime{font-family:var(--mono);font-size:22px;letter-spacing:.1em}
+.wave{height:22px;display:flex;align-items:center;gap:2.5px}
+.wave i{width:2.5px;background:var(--red);border-radius:2px;animation:w .85s ease-in-out infinite alternate}
+@keyframes w{from{height:3px}to{height:20px}}
+.pinbox{display:flex;align-items:center;gap:11px;padding:12px 14px;border:1px dashed var(--line);border-radius:13px;background:var(--card)}
+.pinbox b{font-weight:500}
+.strip{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.strip figure{position:relative;margin:0}
+.strip img{width:80px;height:80px;object-fit:cover;border-radius:10px;display:block}
+.strip button{position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;font-size:13px;line-height:1;display:grid;place-items:center}
+.trbox{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:13px 15px;margin-top:11px}
+.trbox .out{font-size:20px;line-height:1.7;font-family:"Noto Sans Myanmar",var(--body)}
+.trbox .tip{color:var(--ink-2);font-size:13px;margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:9px;margin-top:12px}
+.gal img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:11px}
+audio{width:100%;margin-top:11px}
+.phr{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center}
+.phr .a{font-family:"Noto Sans Myanmar",var(--body);font-size:17px}
+.phr .b{color:var(--ink-2);font-size:13px}
+
+/* ---------- map & stats ---------- */
+#map{height:min(56dvh,500px);border-radius:18px;border:1px solid var(--line);background:var(--canvas)}
+.leaflet-container{font-family:var(--body);background:var(--canvas)}
+.leaflet-popup-content-wrapper{background:var(--card);border-radius:12px}
+.station{width:27px;height:27px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;border:2px solid var(--paper);box-shadow:0 2px 7px rgba(0,0,0,.28)}
+.readout{display:flex;gap:20px;flex-wrap:wrap;margin-top:14px;padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:14px}
+.readout b{display:block;font-family:var(--disp);font-size:25px;font-weight:400;line-height:1.05}
+.readout span{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.grid4{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:14px 15px}
+.stat b{display:block;font-family:var(--disp);font-size:30px;font-weight:400;line-height:1.05}
+.stat.r b{color:var(--red)}.stat.g b{color:var(--sage-ink)}
+.stat span{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.warn{background:#FBEEDC;border:1px solid #E6CFA6;color:#6B5426;padding:11px 14px;border-radius:12px;margin:10px 0 16px;font-size:13.5px}
+
+/* ---------- loader ---------- */
+.load{position:fixed;inset:0;z-index:95;background:#232420;color:#F2EFE4;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:30px}
+.load.on{display:flex}
+.load .rings{width:56px;height:56px;border-radius:50%;border:1.5px solid #55564D;position:relative}
+.load .rings::after{content:"";position:absolute;inset:16px;border-radius:50%;background:var(--red);
+  animation:beat 1.3s ease-in-out infinite}
+@keyframes beat{50%{transform:scale(.55);opacity:.5}}
+.load h3{font-family:var(--disp);font-size:29px;font-weight:400;margin:6px 0 0}
+.load .st{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;color:#8B8C80}
+.load .bars{display:flex;gap:7px;margin-top:12px}
+.load .bars i{width:26px;height:2px;background:#4A4B43;border-radius:2px}
+.load .bars i.on{background:var(--red)}
+.load .foot{position:absolute;bottom:34px;font-family:var(--mono);font-size:9.5px;letter-spacing:.24em;color:#5C5D54}
+
+.toast{position:fixed;left:50%;bottom:100px;transform:translate(-50%,20px);z-index:98;background:var(--black);color:#F5F2E8;
+  padding:11px 18px;border-radius:12px;opacity:0;pointer-events:none;transition:all .25s;max-width:88vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media print{.top,.nav,.fab,.tabs,.scrim,.sheet,.toast,.load{display:none!important}
+  main{padding:0}.canvas{background:#fff;border:0}.pol,.notecard{box-shadow:none;break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand" id="topBrand">Waypoint<span>လမ်းမှတ်</span></div>
+    <button class="ico" id="btnBak" aria-label="Back up or restore"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
+    <button class="ico" id="btnSet" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.63.68 1.08 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </header>
+
+  <main>
+    <section class="view on" id="v-trips"><div id="tripsBody"></div></section>
+
+    <section class="view" id="v-trip">
+      <div class="crumb">
+        <button class="ico" id="tripBack" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+        <span class="c" id="tripCrumb"></span>
+        <button class="ico" id="tripMenu" aria-label="Trip options"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+      </div>
+      <div class="tabs" id="tripTabs"></div>
+      <div id="tripBody"></div>
+    </section>
+
+    <section class="view" id="v-map">
+      <div class="row" style="margin:2px 0 14px">
+        <select class="inp" id="mapTrip" style="flex:1 1 180px;width:auto"></select>
+        <button class="btn" id="btnFit">Fit</button>
+      </div>
+      <div id="map"></div>
+      <div class="readout" id="mapStats"></div>
+    </section>
+
+    <section class="view" id="v-tr">
+      <div class="row" style="margin:2px 0 12px">
+        <select class="inp" id="trLang" style="flex:1 1 170px;width:auto"></select>
+        <button class="btn" id="trMic"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/></svg>Speak</button>
+      </div>
+      <textarea class="inp" id="trIn" placeholder="Type or speak what you want to say…"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="btn pri" id="trGo">Translate</button>
+        <button class="btn" id="trSave">Save phrase</button>
+      </div>
+      <div id="trOut"></div>
+      <div class="sec">Phrasebook</div>
+      <div id="phrList"></div>
+    </section>
+
+    <section class="view" id="v-book">
+      <div class="sec" style="margin-top:8px">The record so far</div>
+      <div class="grid4" id="statGrid"></div>
+      <div class="sec">Places you keep coming back to</div>
+      <div id="topPlaces"></div>
+      <div class="row" style="margin-top:22px">
+        <button class="btn" id="btnNewTrip">Start a trip</button>
+        <button class="btn" id="btnPrint">Print the book</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="nav">
+    <button data-v="trips" class="on"><svg viewBox="0 0 24 24"><path d="M3 17V5a2 2 0 0 1 2-2h6v14H5a2 2 0 0 0-2 2zM21 17V5a2 2 0 0 0-2-2h-6v14h6a2 2 0 0 1 2 2zM3 17v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg><small>Book</small></button>
+    <button data-v="map"><svg viewBox="0 0 24 24"><path d="M9 20l-6 2V6l6-2 6 2 6-2v16l-6 2-6-2zM9 4v16M15 6v16"/></svg><small>Trail</small></button>
+    <button class="add" id="btnNew" aria-label="New entry"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button data-v="tr"><svg viewBox="0 0 24 24"><path d="M4 5h10M9 3v2c0 5-2.5 8-6 9M6 10c0 3 3.5 5.5 7 6.5M13 21l4.5-11 4.5 11M15 17h6"/></svg><small>Say it</small></button>
+    <button data-v="book"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg><small>Stats</small></button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<!-- COMPOSER -->
+<div class="sheet" id="shEdit" role="dialog" aria-label="New entry">
+  <div class="grab"></div>
+  <h2 id="edTitle">Capture this moment</h2>
+  <p class="mono" id="edStamp" style="margin:0"></p>
+
+  <div class="recwrap">
+    <button class="recbtn" id="btnRec" aria-label="Record a voice memo"><i></i></button>
+    <div class="rectime" id="recTime">00:00</div>
+    <div class="wave" id="wave" hidden></div>
+    <span class="mono" id="recHint">Tap to record · it writes itself down</span>
+  </div>
+  <div id="recBox"></div>
+
+  <span class="lab">Headline</span>
+  <input class="inp" id="fTitle" placeholder="Gion in the rain">
+  <span class="lab">The note</span>
+  <textarea class="inp" id="fNote" placeholder="The moment we stepped onto Hanamikoji…"></textarea>
+
+  <span class="lab">Photos</span>
+  <div class="row">
+    <button class="btn" id="btnCam"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Camera</button>
+    <button class="btn" id="btnLib"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Library</button>
+  </div>
+  <input type="file" id="fCam" accept="image/*" capture="environment" multiple hidden>
+  <input type="file" id="fLib" accept="image/*" multiple hidden>
+  <div class="strip" id="strip"></div>
+
+  <span class="lab">Where</span>
+  <div class="row">
+    <button class="btn" id="btnPin"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>Pin me here</button>
+    <input class="inp" id="fPlace" placeholder="Or name the place" style="flex:1;min-width:150px;width:auto">
+  </div>
+  <div class="pinbox" id="pinBox" hidden></div>
+
+  <span class="lab">Tags — they show up in red felt-tip</span>
+  <input class="inp" id="fTags" placeholder="wet-stone-street, paper-lantern-glow">
+  <span class="lab">Steps, if you tracked them</span>
+  <input class="inp" id="fSteps" type="number" inputmode="numeric" placeholder="8300">
+  <span class="lab">Trip</span>
+  <select class="inp" id="fTrip"></select>
+  <span class="lab">When</span>
+  <input class="inp" id="fWhen" type="datetime-local">
+
+  <div class="sticky">
+    <button class="btn dgr" id="btnDel" hidden>Delete</button>
+    <button class="btn" id="btnCancel">Cancel</button>
+    <button class="btn pri" id="btnSave">Save &amp; continue</button>
+  </div>
+</div>
+
+<!-- DETAIL -->
+<div class="sheet" id="shView" role="dialog" aria-label="Entry"><div class="grab"></div><div id="viewBody"></div></div>
+
+<!-- TRIP FORM -->
+<div class="sheet" id="shTrip" role="dialog" aria-label="Trip">
+  <div class="grab"></div>
+  <h2 id="tfTitle">Start a trip</h2>
+  <span class="lab">Where</span>
+  <input class="inp" id="tfPlace" placeholder="Japan">
+  <span class="lab">Call it something</span>
+  <input class="inp" id="tfName" placeholder="Winter Kyoto">
+  <span class="lab">First day</span>
+  <input class="inp" id="tfStart" type="date">
+  <span class="lab">How many days</span>
+  <input class="inp" id="tfDays" type="number" min="1" max="365" value="5">
+  <div class="sticky">
+    <button class="btn dgr" id="tfDel" hidden>Delete trip</button>
+    <button class="btn" id="tfCancel">Cancel</button>
+    <button class="btn pri" id="tfSave">Save trip</button>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="sheet" id="shSet" role="dialog" aria-label="Settings">
+  <div class="grab"></div><h2>Settings</h2>
+  <span class="lab">Translate into</span><select class="inp" id="sLang"></select>
+  <span class="lab">Speak-to-text language</span><select class="inp" id="sStt"></select>
+  <span class="lab">Distance</span><div class="row" id="sUnits"></div>
+  <p style="color:var(--ink-2);font-size:13px;margin:18px 0 0">Everything is stored in this browser. Recording, photos, notes and the map all work offline — only translation needs a connection.</p>
+  <div class="sticky"><button class="btn pri" id="sSave">Save settings</button></div>
+</div>
+
+<!-- BACKUP -->
+<div class="sheet" id="shBak" role="dialog" aria-label="Back up or restore">
+  <div class="grab"></div><h2>Back up &amp; restore</h2>
+  <p style="color:var(--ink-2);font-size:14px">Export often. Clearing site data wipes the whole book.</p>
+  <div class="row" style="margin-top:16px">
+    <button class="btn pri" id="btnDown">Export everything</button>
+    <button class="btn" id="btnUp">Import a backup</button>
+  </div>
+  <input type="file" id="fBak" accept="application/json" hidden>
+</div>
+
+<div class="load" id="loader">
+  <div class="rings"></div>
+  <h3 id="ldTitle">Mapping the trails</h3>
+  <div class="st" id="ldStep">STEP 01 / 05</div>
+  <div class="bars" id="ldBars"></div>
+  <div class="foot">TRAIL &nbsp;/&nbsp; <span id="ldYear"></span></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const DOW=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2600)}
+function hashN(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)}
+function dayKey(ts){const d=new Date(ts);d.setHours(0,0,0,0);return d.getTime()}
+function utcDay(ts){const d=new Date(ts);return Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())}
+function addDays(ts,n){const d=new Date(ts);d.setHours(0,0,0,0);d.setDate(d.getDate()+n);return d.getTime()}
+function fmtD(ts){const d=new Date(ts);return `${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`}
+function fmtShort(ts){const d=new Date(ts);return `${MON[d.getMonth()]} ${d.getDate()}`}
+function tstr(ts){const d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes())}
+function localISO(ts){return new Date(ts-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,16)}
+function hav(a,b){const R=6371,r=Math.PI/180,dLat=(b.lat-a.lat)*r,dLng=(b.lng-a.lng)*r;
+  const x=Math.sin(dLat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.min(1,Math.sqrt(x)))}
+const LANGS=[['th','Thai'],['my','Burmese'],['ja','Japanese'],['ko','Korean'],['zh','Chinese'],['ms','Malay'],['id','Indonesian'],['vi','Vietnamese'],['hi','Hindi'],['ta','Tamil'],['es','Spanish'],['fr','French'],['de','German'],['it','Italian'],['pt','Portuguese'],['tr','Turkish'],['ar','Arabic'],['en','English']];
+const STT=[['en-SG','English (SG)'],['en-US','English (US)'],['en-GB','English (UK)'],['my-MM','Burmese'],['th-TH','Thai'],['ja-JP','Japanese'],['ko-KR','Korean'],['zh-CN','Chinese'],['ms-MY','Malay'],['id-ID','Indonesian'],['vi-VN','Vietnamese']];
+const WX={0:'clear',1:'mostly clear',2:'part cloud',3:'overcast',45:'fog',48:'fog',51:'drizzle',53:'drizzle',55:'drizzle',61:'light rain',63:'rain',65:'heavy rain',71:'snow',73:'snow',75:'snow',80:'showers',81:'showers',82:'downpour',95:'thunder',96:'thunder',99:'thunder'};
+
+/* ---------- storage ---------- */
+let db=null,memOnly=false;
+const mem={entries:new Map(),blobs:new Map(),kv:new Map()};
+function openDB(){return new Promise(res=>{let done=false;const fail=()=>{if(!done){done=true;memOnly=true;res(null)}};
+  try{const rq=indexedDB.open('waypoint',1);
+    rq.onupgradeneeded=()=>{const d=rq.result;
+      if(!d.objectStoreNames.contains('entries'))d.createObjectStore('entries',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('blobs'))d.createObjectStore('blobs',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('kv'))d.createObjectStore('kv',{keyPath:'k'})};
+    rq.onsuccess=()=>{if(!done){done=true;db=rq.result;res(db)}};
+    rq.onerror=fail;rq.onblocked=fail;setTimeout(fail,3500);
+  }catch(e){fail()}})}
+function idb(st,mode,fn){return new Promise((res,rej)=>{const rq=fn(db.transaction(st,mode).objectStore(st));rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error)})}
+async function put(st,v){if(memOnly){mem[st].set(v.id??v.k,v);return}await idb(st,'readwrite',s=>s.put(v))}
+async function del(st,k){if(memOnly){mem[st].delete(k);return}await idb(st,'readwrite',s=>s.delete(k))}
+async function get(st,k){if(memOnly)return mem[st].get(k);return idb(st,'readonly',s=>s.get(k))}
+async function all(st){if(memOnly)return [...mem[st].values()];return idb(st,'readonly',s=>s.getAll())}
+
+const S={entries:[],trips:[],phrases:[],cfg:{lang:'th',stt:'en-SG',units:'km'},view:'trips',openTrip:null,tab:'ov',mapTrip:'all'};
+let draft=null,tripDraft=null,urls=[];
+const freeURLs=()=>{urls.forEach(URL.revokeObjectURL);urls=[]};
+const url=b=>{const u=URL.createObjectURL(b);urls.push(u);return u};
+
+async function boot(){
+  await openDB();
+  if(memOnly){const w=document.createElement('div');w.className='warn';
+    w.textContent='This browser is blocking local storage, so nothing will survive closing the tab. Download the file and open it from your own device or GitHub Pages.';
+    $('main').prepend(w)}
+  S.entries=(await all('entries')||[]).sort((a,b)=>b.ts-a.ts);
+  S.trips=(await get('kv','trips'))?.v||[];
+  S.phrases=(await get('kv','phrases'))?.v||[];
+  Object.assign(S.cfg,(await get('kv','cfg'))?.v||{});
+  $('#ldYear').textContent=new Date().getFullYear();
+  buildSelects();renderTrips();
+}
+
+/* ---------- nav ---------- */
+$$('.nav button[data-v]').forEach(b=>b.onclick=()=>go(b.dataset.v));
+function go(v){
+  S.view=v;freeURLs();
+  $$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+  $$('.nav button[data-v]').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  $('#topBrand').innerHTML=v==='trip'?'':'Waypoint<span>လမ်းမှတ်</span>';
+  if(v==='trips')renderTrips();if(v==='map')renderMap();if(v==='book')renderBook();if(v==='tr')renderPhrases();
+  window.scrollTo({top:0,behavior:'instant'});
+}
+const openSheet=id=>{$('#scrim').classList.add('on');$(id).classList.add('on');document.body.style.overflow='hidden'};
+const closeSheets=()=>{$('#scrim').classList.remove('on');$$('.sheet').forEach(s=>s.classList.remove('on'));document.body.style.overflow=''};
+$('#scrim').onclick=()=>{stopRec(true);closeSheets()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){stopRec(true);closeSheets()}});
+
+/* ---------- loader ---------- */
+const STEPS=['Gathering the days','Laying out the pages','Measuring the trail','Sorting the photos','Almost there'];
+function runLoader(done){
+  const l=$('#loader');l.classList.add('on');
+  $('#ldBars').innerHTML=STEPS.map(()=>'<i></i>').join('');
+  let i=0;
+  const tick=()=>{
+    $('#ldTitle').textContent=STEPS[i];
+    $('#ldStep').textContent=`STEP ${pad(i+1)} / ${pad(STEPS.length)}`;
+    $$('#ldBars i').forEach((b,n)=>b.classList.toggle('on',n<=i));
+    i++;
+    if(i<STEPS.length)setTimeout(tick,440);
+    else setTimeout(()=>{l.classList.remove('on');done&&done()},520);
+  };
+  tick();
+}
+
+/* ---------- trips home ---------- */
+const tripDays=t=>Math.max(t.days||1,...S.entries.filter(e=>e.tripId===t.id).map(e=>dayNo(t,e.ts)),1);
+function dayNo(t,ts){return Math.round((utcDay(ts)-utcDay(t.start))/864e5)+1}
+function tripEntries(id){return S.entries.filter(e=>e.tripId===id).sort((a,b)=>a.ts-b.ts)}
+
+function renderTrips(){
+  freeURLs();
+  const b=$('#tripsBody');
+  if(!S.trips.length&&!S.entries.length){
+    b.innerHTML=`<div class="empty" style="padding-top:52px">
+      <div style="font-family:var(--disp);font-size:34px;line-height:1.15">The book is empty.</div>
+      <p>Start where you're standing — talk into it,<br>snap one photo, drop a pin.</p>
+      <div class="row" style="justify-content:center">
+        <button class="btn pri" id="e1" style="flex:0">Capture a moment</button>
+        <button class="btn" id="e2">Start a trip</button></div></div>`;
+    $('#e1').onclick=newEntry;$('#e2').onclick=()=>editTrip(null);return;
+  }
+  const live=S.trips.filter(t=>!t.ended).sort((a,b)=>b.start-a.start);
+  const past=S.trips.filter(t=>t.ended).sort((a,b)=>b.start-a.start);
+  const loose=S.entries.filter(e=>!e.tripId);
+  let h='';
+  if(live.length){
+    const t=live[0],en=tripEntries(t.id),d=Math.max(1,dayNo(t,Date.now())),last=en[en.length-1];
+    h+=`<div class="road">You've been on the road for <b>${d} ${d===1?'day':'days'}</b>${last?.place?` · <b>${esc(last.place)}</b>`:''}</div>`;
+  }
+  for(const t of live)h+=tripCard(t,true);
+  if(past.length){h+=`<div class="sec">Trips</div>`;for(const t of past)h+=tripCard(t,false)}
+  if(loose.length){
+    h+=`<div class="sec">Loose pages</div>`;
+    for(const e of loose.slice(0,30))h+=noteCard(e);
+  }
+  b.innerHTML=h;
+  $$('[data-trip]',b).forEach(x=>x.onclick=()=>openTrip(x.dataset.trip));
+  $$('[data-entry]',b).forEach(x=>x.onclick=()=>viewEntry(x.dataset.entry));
+  loadThumbs(b);
+}
+function tripCard(t,live){
+  const en=tripEntries(t.id),total=tripDays(t),d=Math.min(Math.max(1,dayNo(t,Date.now())),total);
+  return `<button class="trip" data-trip="${t.id}">
+    <div class="st"><span class="dt">${live?'<span class="dot"></span> ongoing':'completed'}</span>
+      <span class="dt">${en.length} ${en.length===1?'note':'notes'}</span></div>
+    <h2>${esc(t.place||t.name)}</h2>
+    <div class="dt">${fmtShort(t.start)} – ${fmtShort(addDays(t.start,total-1))}</div>
+    <div class="ft"><span class="dt">${live?`Day ${d} / ${total}`:`${total} days`}</span>
+      <span class="go">Open trip <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span></div></button>`;
+}
+function noteCard(e){
+  const ph=e.photos?.[0];
+  return `<button class="note" data-entry="${e.id}">
+    ${ph?`<img data-blob="${ph.id}" alt="">`:`<div class="ph">${esc((e.title||'·')[0].toUpperCase())}</div>`}
+    <div style="min-width:0;flex:1"><b>${esc(e.title||'Untitled')}</b>
+      <div class="sub">${esc(fmtShort(e.ts))}${e.place?' · '+esc(e.place):''}${e.photos?.length?' · '+e.photos.length+' photo'+(e.photos.length>1?'s':''):''}</div></div>
+    ${e.audio?`<span class="aud">▶ ${pad(Math.floor(e.audio.dur/60))}:${pad(e.audio.dur%60)}</span>`:''}</button>`;
+}
+async function loadThumbs(root){
+  for(const im of $$('[data-blob]',root)){
+    const r=await get('blobs',im.dataset.blob);if(r)im.src=url(r.blob);
+  }
+}
+
+/* ---------- trip detail ---------- */
+function openTrip(id){
+  S.openTrip=id;S.tab='ov';go('trip');renderTrip();
+}
+$('#tripBack').onclick=()=>go('trips');
+$('#tripMenu').onclick=()=>editTrip(S.openTrip);
+function endJourney(){
+  const t=S.trips.find(x=>x.id===S.openTrip);if(!t)return;
+  if(t.ended){t.ended=false;put('kv',{k:'trips',v:S.trips}).then(()=>{renderTrip();toast('Trip reopened.')});return}
+  runLoader(()=>{t.ended=true;put('kv',{k:'trips',v:S.trips}).then(()=>{renderTrip();toast('Journey closed.')})});
+}
+async function delTrip(id){
+  S.trips=S.trips.filter(t=>t.id!==id);
+  for(const e of S.entries)if(e.tripId===id){e.tripId='';await put('entries',{...e})}
+  await put('kv',{k:'trips',v:S.trips});buildSelects();go('trips');toast('Trip removed.');
+}
+function renderTrip(){
+  const t=S.trips.find(x=>x.id===S.openTrip);if(!t)return go('trips');
+  const total=tripDays(t);
+  $('#tripCrumb').textContent=`Trip / ${(t.place||t.name||'').toUpperCase()}${S.tab==='ov'?'':' · Day '+pad(+S.tab)+' / '+pad(total)}`;
+  $('#tripTabs').innerHTML=`<button data-t="ov" class="${S.tab==='ov'?'on':''}">Overview</button>`+
+    Array.from({length:total},(_,i)=>`<button data-t="${i+1}" class="${S.tab==String(i+1)?'on':''}">Day ${pad(i+1)}</button>`).join('');
+  $$('#tripTabs button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;renderTrip();
+    if(S.tab!=='ov')$('#tripTabs').scrollTo({left:b.offsetLeft-90,behavior:'smooth'})});
+  S.tab==='ov'?renderOverview(t,total):renderDay(t,+S.tab);
+}
+function renderOverview(t,total){
+  const en=tripEntries(t.id);
+  const byDay={};en.forEach(e=>{const n=Math.max(1,dayNo(t,e.ts));(byDay[n]??=[]).push(e)});
+  let h=`<div class="daystat"><div class="r1"><span class="dt mono" style="color:inherit;opacity:.8">${esc(t.name||t.place)}</span>
+      <span class="dt mono" style="color:inherit;opacity:.8">${en.length} notes</span></div>
+    <h3>${esc(t.place||t.name)}</h3>
+    <div class="nums"><div><b>${total}</b><span>days</span></div>
+      <div><b>${en.reduce((s,e)=>s+(e.photos?.length||0),0)}</b><span>photos</span></div>
+      <div><b>${Math.round(en.reduce((s,e)=>s+(e.audio?.dur||0),0)/60)}m</b><span>recorded</span></div>
+      <div><b>${new Set(en.map(e=>e.place).filter(Boolean)).size}</b><span>places</span></div></div></div>
+    <div style="height:14px"></div>`;
+  if(!en.length)h+=`<div class="empty"><p>No pages yet.<br>Tap + and start this one.</p></div>`;
+  for(let n=1;n<=total;n++){
+    const rows=byDay[n];if(!rows)continue;
+    const first=rows[0];
+    const line=(first.note||first.audio?.transcript||first.title||'').trim().split(/[.!?]\s/)[0].slice(0,110);
+    h+=`<button class="ovrow" data-day="${n}"><span class="n">${pad(n)}</span>
+      <div style="min-width:0"><div class="pl">${esc([...new Set(rows.map(r=>r.place).filter(Boolean))].join(' · ')||fmtShort(first.ts))}</div>
+      <p>${esc(line||first.title)}</p></div></button>`;
+  }
+  h+=`<div class="row" style="margin-top:22px">
+    <button class="btn" id="ovEdit" style="flex:1">Edit trip</button>
+    <button class="btn ${t.ended?'':'pri'}" id="ovEnd" style="flex:1">${t.ended?'Reopen this trip':'End this journey'}</button></div>`;
+  $('#tripBody').innerHTML=h;
+  $('#ovEdit').onclick=()=>editTrip(t.id);
+  $('#ovEnd').onclick=endJourney;
+  $$('#tripBody [data-day]').forEach(b=>b.onclick=()=>{S.tab=b.dataset.day;renderTrip()});
+}
+function renderDay(t,n){
+  freeURLs();
+  const date=addDays(t.start,n-1);
+  const rows=tripEntries(t.id).filter(e=>dayKey(e.ts)===dayKey(date));
+  const d=new Date(date);
+  const steps=rows.reduce((s,e)=>s+(+e.steps||0),0);
+  const photos=rows.reduce((s,e)=>s+(e.photos?.length||0),0);
+  const secs=rows.reduce((s,e)=>s+(e.audio?.dur||0),0);
+  const wx=rows.find(e=>e.weather)?.weather;
+  const place=[...new Set(rows.map(r=>r.place).filter(Boolean))][0]||'';
+  let h=`<div class="daystat"><div class="r1">
+      <span class="mono" style="color:inherit;opacity:.75">Today</span>
+      <span class="mono" style="color:inherit;opacity:.75">${esc(DOW[d.getDay()])}</span></div>
+    <h3>${esc(fmtD(date))}</h3>
+    <div class="mono" style="color:inherit;opacity:.8;margin-top:4px">${esc(place||'—')}${wx?` · ${Math.round(wx.t)}° ${esc(WX[wx.code]||'')}`:''}</div>
+    <div class="nums">
+      <div><b>${steps?(steps>999?(steps/1000).toFixed(1)+'K':steps):'—'}</b><span>steps</span></div>
+      <div><b>${photos}</b><span>photos</span></div>
+      <div><b>${pad(Math.floor(secs/60))}:${pad(secs%60)}</b><span>recorded</span></div>
+      <div><b>${rows.length}</b><span>notes</span></div></div></div>`;
+
+  if(!rows.length){
+    h+=`<div class="canvas"><div class="empty"><p>Nothing on this page yet.</p>
+      <button class="btn pri" id="dayAdd" style="flex:0">Capture this moment</button></div></div>`;
+    $('#tripBody').innerHTML=h;
+    $('#dayAdd').onclick=()=>newEntry(t.id,date);
+    return;
+  }
+  h+=`<div class="canvas"><div class="stack">
+    <div class="daybadge"><b>${pad(n)}</b><span>${DOW[d.getDay()]}</span></div>`;
+  let noteNo=0,side=0;
+  for(const e of rows){
+    for(const p of (e.photos||[])){
+      const rot=((hashN(p.id)%7)-3)*.9, off=(hashN(p.id+'x')%5);
+      h+=`<figure class="pol ${side%2?'right':''}" style="transform:rotate(${rot}deg);margin-left:${side%2?'auto':off*3+'px'}">
+        <span class="tape ${hashN(p.id)%2?'b':''}" style="left:${18+off*4}%"></span>
+        <img data-blob="${p.id}" alt="${esc(e.title||'')}">
+        <figcaption>${esc(e.title||fmtShort(e.ts))}</figcaption></figure>`;
+      side++;
+    }
+    const body=(e.note||e.audio?.transcript||'').trim();
+    if(body){
+      noteNo++;
+      const rot=((hashN(e.id)%5)-2)*.7;
+      h+=`<div class="notecard ${side%2?'right':''}" style="transform:rotate(${rot}deg)">
+        <span class="tape" style="left:14%"></span>
+        <div class="lb">Note ${pad(noteNo)}</div><p>${esc(body)}</p></div>`;
+      side++;
+    }
+    if(e.tags?.length)h+=`<div style="margin:2px 0 6px">${e.tags.map((x,i)=>`<span class="rtag" style="transform:rotate(${(hashN(x)%5)-2}deg)">#${esc(x)}</span>`).join('')}</div>`;
+    if(e.audio)h+=`<div class="audcard ${side++%2?'right':''}" data-play="${e.audio.id}">
+      <span class="pl"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span>
+      <div style="min-width:0"><div style="font-family:var(--hand);font-size:20px">Your voice, ${tstr(e.ts)}</div>
+        <div class="mono">${pad(Math.floor(e.audio.dur/60))}:${pad(e.audio.dur%60)} · tap to play</div></div></div>`;
+    h+=`<button class="mono" data-entry="${e.id}" style="margin:0 0 8px;text-decoration:underline;text-underline-offset:3px">Open note</button>`;
+  }
+  h+=`</div></div>`;
+  $('#tripBody').innerHTML=h;
+  loadThumbs($('#tripBody'));
+  $$('#tripBody [data-entry]').forEach(b=>b.onclick=()=>viewEntry(b.dataset.entry));
+  $$('#tripBody [data-play]').forEach(async b=>{
+    b.onclick=async()=>{
+      const r=await get('blobs',b.dataset.play);if(!r)return;
+      if(b._a){b._a.paused?b._a.play():b._a.pause();return}
+      b._a=new Audio(url(r.blob));b._a.play();
+    };
+  });
+}
+
+/* ---------- composer ---------- */
+function newEntry(tripId,when){
+  const live=S.trips.find(t=>!t.ended);
+  draft={id:uid(),ts:when?when+Math.min(Date.now()-dayKey(Date.now()),864e5-1):Date.now(),title:'',note:'',tags:[],
+    tripId:tripId||live?.id||'',place:'',lat:null,lng:null,weather:null,steps:'',photos:[],audio:null,_new:true};
+  fillEditor();openSheet('#shEdit');
+}
+$('#btnNew').onclick=()=>newEntry(S.view==='trip'?S.openTrip:null,S.view==='trip'&&S.tab!=='ov'?addDays(S.trips.find(t=>t.id===S.openTrip).start,+S.tab-1):null);
+function fillEditor(){
+  const e=draft;
+  $('#edTitle').textContent=e._new?'Capture this moment':'Edit this page';
+  $('#edStamp').textContent=`${DOW[new Date(e.ts).getDay()]} · ${fmtD(e.ts)} · ${tstr(e.ts)}`;
+  $('#fTitle').value=e.title;$('#fNote').value=e.note;$('#fPlace').value=e.place||'';
+  $('#fTags').value=(e.tags||[]).join(', ');$('#fSteps').value=e.steps||'';
+  $('#fWhen').value=localISO(e.ts);
+  $('#fTrip').innerHTML=`<option value="">No trip — a loose page</option>`+
+    S.trips.map(t=>`<option value="${t.id}" ${t.id===e.tripId?'selected':''}>${esc(t.name||t.place)}</option>`).join('')+
+    `<option value="__new">+ Start a trip…</option>`;
+  $('#btnDel').hidden=!!e._new;
+  drawPin();drawStrip();drawRec();
+}
+$('#fTrip').onchange=ev=>{
+  if(ev.target.value==='__new'){closeSheets();setTimeout(()=>editTrip(null,draft),260)}
+  else draft.tripId=ev.target.value;
+};
+$('#fWhen').onchange=ev=>{const v=new Date(ev.target.value).getTime();if(!isNaN(v)){draft.ts=v;$('#edStamp').textContent=`${DOW[new Date(v).getDay()]} · ${fmtD(v)} · ${tstr(v)}`}};
+$('#fPlace').oninput=e=>draft.place=e.target.value;
+$('#fSteps').oninput=e=>draft.steps=e.target.value;
+
+function drawPin(){
+  const b=$('#pinBox');
+  if(draft.lat==null){b.hidden=true;return}
+  b.hidden=false;
+  b.innerHTML=`<span style="color:var(--red)">◉</span><div><b>${esc(draft.place||'Dropped pin')}</b><br>
+    <span class="mono">${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}${draft.weather?' · '+Math.round(draft.weather.t)+'° '+(WX[draft.weather.code]||''):''}</span></div>
+    <button class="btn" style="margin-left:auto;padding:7px 11px" id="unpin">Clear</button>`;
+  $('#unpin').onclick=()=>{draft.lat=draft.lng=null;draft.weather=null;drawPin()};
+}
+$('#btnPin').onclick=()=>{
+  if(!navigator.geolocation)return toast('This browser has no location access.');
+  const b=$('#btnPin');b.disabled=true;toast('Getting a fix…');
+  navigator.geolocation.getCurrentPosition(async p=>{
+    b.disabled=false;draft.lat=p.coords.latitude;draft.lng=p.coords.longitude;drawPin();
+    const [pl,wx]=await Promise.all([revGeo(draft.lat,draft.lng),getWx(draft.lat,draft.lng)]);
+    if(pl&&!$('#fPlace').value){draft.place=pl;$('#fPlace').value=pl}
+    draft.weather=wx;drawPin();
+  },()=>{b.disabled=false;toast('No fix — check location permission.')},{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
+};
+async function revGeo(lat,lng){try{
+  const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=14&lat=${lat}&lon=${lng}`);
+  const j=await r.json(),a=j.address||{};
+  return [a.suburb||a.neighbourhood||a.village||a.town||a.city_district,a.city||a.state].filter(Boolean).slice(0,2).join(', ')||j.name||'';
+}catch(e){return ''}}
+async function getWx(lat,lng){try{
+  const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code`);
+  const j=await r.json();return {t:j.current.temperature_2m,code:j.current.weather_code};
+}catch(e){return null}}
+
+$('#btnCam').onclick=()=>$('#fCam').click();
+$('#btnLib').onclick=()=>$('#fLib').click();
+$('#fCam').onchange=e=>addPhotos(e.target.files);
+$('#fLib').onchange=e=>addPhotos(e.target.files);
+async function addPhotos(files){
+  for(const f of files){
+    if(!f.type.startsWith('image/'))continue;
+    try{const blob=await shrink(f,1600,.82);const id=uid();await put('blobs',{id,blob});draft.photos.push({id});drawStrip()}
+    catch(err){toast("Couldn't read that photo.")}
+  }
+}
+function shrink(file,max,q){return new Promise((res,rej)=>{
+  const img=new Image(),u=URL.createObjectURL(file);
+  img.onload=()=>{const sc=Math.min(1,max/Math.max(img.width,img.height));
+    const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);
+    c.toBlob(b=>b?res(b):rej(new Error('encode')),'image/jpeg',q)};
+  img.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('load'))};img.src=u})}
+async function drawStrip(){
+  const s=$('#strip');s.innerHTML='';
+  for(const p of draft.photos){
+    const r=await get('blobs',p.id);if(!r)continue;
+    const fig=document.createElement('figure');
+    const im=new Image();im.src=url(r.blob);im.alt='';
+    const b=document.createElement('button');b.textContent='×';b.setAttribute('aria-label','Remove photo');
+    b.onclick=async()=>{draft.photos=draft.photos.filter(x=>x.id!==p.id);await del('blobs',p.id);drawStrip()};
+    fig.append(im,b);s.appendChild(fig);
+  }
+}
+
+/* voice */
+let mr=null,chunks=[],recog=null,recStart=0,recTimer=null,liveText='';
+$('#btnRec').onclick=()=>mr&&mr.state==='recording'?stopRec():startRec();
+async function startRec(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported(m))||'';
+    mr=new MediaRecorder(stream,mime?{mimeType:mime}:undefined);chunks=[];liveText='';
+    mr.ondataavailable=e=>e.data.size&&chunks.push(e.data);
+    mr.onstop=async()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(chunks,{type:mr.mimeType||'audio/webm'});
+      const dur=Math.max(1,Math.round((Date.now()-recStart)/1000)),id=uid();
+      await put('blobs',{id,blob});
+      if(draft.audio?.id)await del('blobs',draft.audio.id);
+      draft.audio={id,dur,transcript:liveText.trim(),translation:null};
+      if(liveText.trim()&&!$('#fNote').value.trim()){$('#fNote').value=liveText.trim();draft.note=liveText.trim()}
+      drawRec();toast(liveText.trim()?'Memo saved, with the words.':'Memo saved.');
+    };
+    mr.start();recStart=Date.now();startSTT();
+    $('#btnRec').classList.add('live');$('#recHint').textContent='Tap again to stop';
+    $('#wave').hidden=false;$('#wave').innerHTML=Array.from({length:30},(_,i)=>`<i style="animation-delay:${(i%7)*.1}s"></i>`).join('');
+    recTimer=setInterval(()=>{const s=Math.round((Date.now()-recStart)/1000);$('#recTime').textContent=pad(Math.floor(s/60))+':'+pad(s%60)},250);
+  }catch(e){toast('No microphone access. Check the site permissions.')}
+}
+function stopRec(silent){
+  if(recog){try{recog.stop()}catch(e){}recog=null}
+  clearInterval(recTimer);
+  $('#btnRec').classList.remove('live');$('#wave').hidden=true;
+  $('#recHint').textContent='Tap to record · it writes itself down';
+  if(mr&&mr.state==='recording'){if(silent)mr.onstop=null;mr.stop()}
+  mr=null;if(silent)$('#recTime').textContent='00:00';
+}
+function startSTT(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;
+  recog=new SR();recog.continuous=true;recog.interimResults=true;recog.lang=S.cfg.stt;
+  recog.onresult=ev=>{let f='';for(let i=ev.resultIndex;i<ev.results.length;i++)if(ev.results[i].isFinal)f+=ev.results[i][0].transcript+' ';if(f)liveText+=f};
+  recog.onerror=()=>{};recog.onend=()=>{if(mr&&mr.state==='recording'){try{recog.start()}catch(e){}}};
+  try{recog.start()}catch(e){}
+}
+async function drawRec(){
+  const box=$('#recBox');box.innerHTML='';
+  if(!draft.audio){$('#recTime').textContent='00:00';return}
+  const r=await get('blobs',draft.audio.id);if(!r)return;
+  $('#recTime').textContent=pad(Math.floor(draft.audio.dur/60))+':'+pad(draft.audio.dur%60);
+  const a=document.createElement('audio');a.controls=true;a.src=url(r.blob);box.appendChild(a);
+  const t=document.createElement('div');t.className='trbox';
+  t.innerHTML=`<span class="mono">What you said — tap to fix it</span>
+    <div contenteditable="true" id="edTr" class="hand" style="margin-top:6px;outline:none">${esc(draft.audio.transcript||'Nothing picked up. Type it here.')}</div>
+    <div class="row" style="margin-top:11px">
+      <button class="btn" id="trThis" style="padding:8px 12px">Translate this</button>
+      <button class="btn dgr" id="rmRec" style="padding:8px 12px">Remove memo</button></div>`;
+  box.appendChild(t);
+  $('#edTr').onblur=e=>draft.audio.transcript=e.target.textContent.trim();
+  $('#rmRec').onclick=async()=>{await del('blobs',draft.audio.id);draft.audio=null;drawRec()};
+  $('#trThis').onclick=async()=>{
+    const src=$('#edTr').textContent.trim();if(!src)return;
+    $('#trThis').textContent='…';
+    const r2=await translate(src,S.cfg.lang);
+    $('#trThis').textContent='Translate this';
+    if(!r2)return toast('Translation needs a connection.');
+    draft.audio.translation=r2;
+    const d=document.createElement('div');d.className='trbox';
+    d.innerHTML=`<span class="mono">${esc(langName(S.cfg.lang))}</span><div class="out">${esc(r2.text)}</div>`;
+    box.appendChild(d);
+  };
+}
+
+$('#btnCancel').onclick=()=>{stopRec(true);closeSheets()};
+$('#btnSave').onclick=async()=>{
+  if(mr&&mr.state==='recording')return toast('Stop the recording first.');
+  const e=draft;
+  e.title=$('#fTitle').value.trim();e.note=$('#fNote').value.trim();e.place=$('#fPlace').value.trim();
+  e.tags=$('#fTags').value.split(',').map(s=>s.trim().replace(/^#/,'')).filter(Boolean);
+  e.steps=$('#fSteps').value;
+  if(!e.title&&!e.note&&!e.photos.length&&!e.audio)return toast('Add a headline, a photo, or a memo first.');
+  if(!e.title)e.title=e.place?('At '+e.place):fmtShort(e.ts);
+  const was=e._new;delete e._new;
+  await put('entries',{...e});
+  S.entries=S.entries.filter(x=>x.id!==e.id);S.entries.push({...e});S.entries.sort((a,b)=>b.ts-a.ts);
+  closeSheets();buildSelects();
+  if(S.view==='trip')renderTrip();else renderTrips();
+  toast(was?'Saved to the page.':'Page updated.');
+};
+$('#btnDel').onclick=async()=>{
+  if(!confirm('Delete this page, its photos and its memo?'))return;
+  for(const p of draft.photos||[])await del('blobs',p.id);
+  if(draft.audio)await del('blobs',draft.audio.id);
+  await del('entries',draft.id);
+  S.entries=S.entries.filter(x=>x.id!==draft.id);
+  closeSheets();S.view==='trip'?renderTrip():renderTrips();toast('Deleted.');
+};
+
+/* ---------- entry detail ---------- */
+async function viewEntry(id){
+  const e=S.entries.find(x=>x.id===id);if(!e)return;
+  const t=S.trips.find(x=>x.id===e.tripId);
+  $('#viewBody').innerHTML=`<p class="mono" style="margin:0">${esc(DOW[new Date(e.ts).getDay()])} · ${esc(fmtD(e.ts))} · ${tstr(e.ts)}</p>
+    <h2 style="margin-top:4px">${esc(e.title)}</h2>
+    ${e.place?`<p class="mono" style="color:var(--red);margin:6px 0 0">◉ ${esc(e.place)}${e.weather?` · ${Math.round(e.weather.t)}° ${esc(WX[e.weather.code]||'')}`:''}</p>`:''}
+    ${t?`<p class="mono" style="margin:6px 0 0">${esc(t.name||t.place)} · Day ${pad(Math.max(1,dayNo(t,e.ts)))}</p>`:''}
+    ${e.note?`<p class="hand" style="margin:16px 0 0;white-space:pre-wrap">${esc(e.note)}</p>`:''}
+    ${e.tags?.length?`<div style="margin-top:12px">${e.tags.map(x=>`<span class="rtag">#${esc(x)}</span>`).join('')}</div>`:''}
+    <div id="vAudio"></div><div class="gal" id="vGal"></div>
+    <div class="sticky"><button class="btn" id="vEdit" style="flex:1">Edit</button>
+      ${e.lat!=null?`<button class="btn" id="vMap">Show on trail</button>`:''}</div>`;
+  openSheet('#shView');
+  $('#vEdit').onclick=()=>{draft=JSON.parse(JSON.stringify(e));closeSheets();setTimeout(()=>{fillEditor();openSheet('#shEdit')},270)};
+  if(e.lat!=null)$('#vMap').onclick=()=>{closeSheets();go('map');setTimeout(()=>map&&map.setView([e.lat,e.lng],15),360)};
+  if(e.audio){
+    const r=await get('blobs',e.audio.id);
+    if(r){const a=document.createElement('audio');a.controls=true;a.src=url(r.blob);$('#vAudio').appendChild(a);
+      if(e.audio.transcript){const d=document.createElement('div');d.className='trbox';
+        d.innerHTML=`<span class="mono">What you said</span><div class="hand" style="margin-top:6px">${esc(e.audio.transcript)}</div>
+        ${e.audio.translation?`<div class="out" style="margin-top:10px">${esc(e.audio.translation.text)}</div>`:''}`;
+        $('#vAudio').appendChild(d)}}
+  }
+  for(const p of e.photos||[]){
+    const r=await get('blobs',p.id);if(!r)continue;
+    const im=new Image();im.src=url(r.blob);im.alt='';im.loading='lazy';
+    im.onclick=()=>window.open(im.src,'_blank');$('#vGal').appendChild(im);
+  }
+}
+
+/* ---------- trip form ---------- */
+function editTrip(id,backTo){
+  const t=id?S.trips.find(x=>x.id===id):null;
+  tripDraft={id:t?.id||uid(),name:t?.name||'',place:t?.place||'',start:t?.start||dayKey(Date.now()),days:t?.days||5,ended:t?.ended||false,_new:!t,_back:backTo||null};
+  $('#tfTitle').textContent=t?'Edit trip':'Start a trip';
+  $('#tfPlace').value=tripDraft.place;$('#tfName').value=tripDraft.name;
+  $('#tfStart').value=new Date(tripDraft.start-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+  $('#tfDays').value=tripDraft.days;$('#tfDel').hidden=!t;
+  openSheet('#shTrip');
+}
+$('#tfCancel').onclick=()=>{closeSheets();if(tripDraft?._back)setTimeout(()=>{fillEditor();openSheet('#shEdit')},260)};
+$('#tfDel').onclick=()=>{if(confirm('Delete the trip? Entries stay, they just lose the label.')){closeSheets();delTrip(tripDraft.id)}};
+$('#tfSave').onclick=async()=>{
+  const d=tripDraft;
+  d.place=$('#tfPlace').value.trim();d.name=$('#tfName').value.trim()||d.place;
+  const sv=$('#tfStart').value;d.start=sv?new Date(sv+'T00:00:00').getTime():dayKey(Date.now());
+  d.days=Math.max(1,Math.min(365,+$('#tfDays').value||1));
+  if(!d.place&&!d.name)return toast('Give the trip a place or a name.');
+  const isNew=d._new,back=d._back;delete d._new;delete d._back;
+  S.trips=S.trips.filter(t=>t.id!==d.id);S.trips.push({...d});
+  await put('kv',{k:'trips',v:S.trips});buildSelects();closeSheets();
+  if(back){draft.tripId=d.id;setTimeout(()=>{fillEditor();openSheet('#shEdit')},260);toast('Trip created.');return}
+  if(isNew)runLoader(()=>openTrip(d.id));
+  else{S.view==='trip'?renderTrip():renderTrips();toast('Trip saved.')}
+};
+$('#btnNewTrip').onclick=()=>editTrip(null);
+
+/* ---------- map ---------- */
+let map=null,layer=null;
+function renderMap(){
+  if(!window.L){$('#map').innerHTML='<p style="padding:20px">Map library didn\'t load — check the connection and reload.</p>';return}
+  if(!map){
+    map=L.map('map').setView([1.3521,103.8198],11);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      {attribution:'&copy; OpenStreetMap, &copy; CARTO',maxZoom:19,subdomains:'abcd'}).addTo(map);
+    layer=L.layerGroup().addTo(map);
+  }
+  setTimeout(()=>map.invalidateSize(),60);
+  layer.clearLayers();
+  const pts=S.entries.filter(e=>e.lat!=null&&(S.mapTrip==='all'||e.tripId===S.mapTrip)).sort((a,b)=>a.ts-b.ts);
+  if(!pts.length){$('#mapStats').innerHTML='<div style="color:var(--ink-2)">Pin an entry and it lands here.</div>';return}
+  if(pts.length>1)L.polyline(pts.map(p=>[p.lat,p.lng]),{color:'#E0522F',weight:2.5,opacity:.85,dashArray:'1 7',lineCap:'round'}).addTo(layer);
+  pts.forEach((e,i)=>{
+    const m=L.marker([e.lat,e.lng],{icon:L.divIcon({className:'',html:`<div class="station">${i+1}</div>`,iconSize:[27,27],iconAnchor:[13,13]})}).addTo(layer);
+    m.bindPopup(`<b>${esc(e.title)}</b><br><span style="color:#7C7C6E">${esc(fmtD(e.ts))}</span><br><a href="#" data-open="${e.id}">Open note</a>`);
+    m.on('popupopen',ev=>{const a=ev.popup.getElement().querySelector('[data-open]');if(a)a.onclick=x=>{x.preventDefault();map.closePopup();viewEntry(e.id)}});
+  });
+  let km=0;for(let i=1;i<pts.length;i++)km+=hav(pts[i-1],pts[i]);
+  const dv=S.cfg.units==='mi'?km*.621371:km, un=S.cfg.units==='mi'?'mi':'km';
+  $('#mapStats').innerHTML=`<div><b>${pts.length}</b><span>stations</span></div>
+    <div><b>${dv.toFixed(dv>100?0:1)}</b><span>${un} of trail</span></div>
+    <div><b>${new Set(pts.map(p=>dayKey(p.ts))).size}</b><span>days out</span></div>
+    <div><b>${new Set(pts.map(p=>p.place).filter(Boolean)).size}</b><span>places</span></div>`;
+  fit(pts);
+}
+function fit(pts){
+  const p=pts||S.entries.filter(e=>e.lat!=null&&(S.mapTrip==='all'||e.tripId===S.mapTrip));
+  if(!p.length||!map)return;
+  map.fitBounds(L.latLngBounds(p.map(x=>[x.lat,x.lng])).pad(.25),{maxZoom:15});
+}
+$('#mapTrip').onchange=e=>{S.mapTrip=e.target.value;renderMap()};
+$('#btnFit').onclick=()=>fit();
+
+/* ---------- translate ---------- */
+const langName=c=>(LANGS.find(l=>l[0]===c)||[,c])[1];
+async function translate(text,target){
+  try{
+    const r=await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text.slice(0,480))}&langpair=en|${target}`);
+    const j=await r.json(),t=j?.responseData?.translatedText;
+    if(t)return {text:t};
+  }catch(e){}
+  return null;
+}
+$('#trGo').onclick=async()=>{
+  const src=$('#trIn').value.trim();if(!src)return toast('Type something to translate.');
+  $('#trGo').textContent='Translating…';$('#trGo').disabled=true;
+  const r=await translate(src,S.cfg.lang);
+  $('#trGo').textContent='Translate';$('#trGo').disabled=false;
+  if(!r){$('#trOut').innerHTML='<div class="warn">No answer from the translation service. It needs a connection.</div>';return}
+  $('#trOut')._last={src,...r};
+  $('#trOut').innerHTML=`<div class="trbox"><span class="mono">${esc(langName(S.cfg.lang))}</span>
+    <div class="out">${esc(r.text)}</div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" id="trSpeak" style="padding:8px 12px">Say it out loud</button>
+      <button class="btn" id="trCopy" style="padding:8px 12px">Copy</button></div></div>`;
+  $('#trSpeak').onclick=()=>speak(r.text,S.cfg.lang);
+  $('#trCopy').onclick=()=>{navigator.clipboard?.writeText(r.text);toast('Copied.')};
+};
+function speak(t,lang){
+  if(!window.speechSynthesis)return toast("This browser can't speak.");
+  const u=new SpeechSynthesisUtterance(t);u.lang=(STT.find(s=>s[0].startsWith(lang))||[lang])[0];u.rate=.85;
+  speechSynthesis.cancel();speechSynthesis.speak(u);
+}
+$('#trMic').onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return toast('Speech input needs Chrome or Edge.');
+  const r=new SR();r.lang=S.cfg.stt;r.interimResults=true;let txt='';
+  $('#trMic').textContent='Listening…';
+  r.onresult=e=>{txt='';for(const x of e.results)txt+=x[0].transcript;$('#trIn').value=txt};
+  r.onend=()=>{$('#trMic').textContent='Speak';if(txt.trim())$('#trGo').click()};
+  r.onerror=()=>{$('#trMic').textContent='Speak';toast("Didn't catch that.")};
+  r.start();
+};
+$('#trSave').onclick=async()=>{
+  const l=$('#trOut')._last;if(!l)return toast('Translate something first.');
+  S.phrases.unshift({id:uid(),src:l.src,text:l.text,lang:S.cfg.lang,ts:Date.now()});
+  await put('kv',{k:'phrases',v:S.phrases});renderPhrases();toast('Saved to your phrasebook.');
+};
+function renderPhrases(){
+  const b=$('#phrList');
+  if(!S.phrases.length){b.innerHTML='<p style="color:var(--ink-2)">Phrases you save show up here — handy when the wifi doesn\'t.</p>';return}
+  b.innerHTML=S.phrases.map(p=>`<div class="phr"><div style="min-width:0">
+    <div class="a">${esc(p.text)}</div><div class="b">${esc(p.src)}</div></div>
+    <div class="row" style="flex:none;gap:6px">
+      <button class="btn" style="padding:7px 11px" data-say="${p.id}">▶</button>
+      <button class="btn dgr" style="padding:7px 11px" data-rm="${p.id}">×</button></div></div>`).join('');
+  $$('[data-say]',b).forEach(x=>x.onclick=()=>{const p=S.phrases.find(q=>q.id===x.dataset.say);speak(p.text,p.lang)});
+  $$('[data-rm]',b).forEach(x=>x.onclick=async()=>{S.phrases=S.phrases.filter(q=>q.id!==x.dataset.rm);await put('kv',{k:'phrases',v:S.phrases});renderPhrases()});
+}
+
+/* ---------- stats ---------- */
+function renderBook(){
+  const E=S.entries,days=new Set(E.map(e=>dayKey(e.ts)));
+  const pts=E.filter(e=>e.lat!=null).sort((a,b)=>a.ts-b.ts);
+  let km=0;for(let i=1;i<pts.length;i++)km+=hav(pts[i-1],pts[i]);
+  const dv=S.cfg.units==='mi'?km*.621371:km;
+  const secs=E.reduce((s,e)=>s+(e.audio?.dur||0),0);
+  const words=E.reduce((s,e)=>s+(e.note||'').split(/\s+/).filter(Boolean).length,0);
+  $('#statGrid').innerHTML=[
+    ['r',E.length,'pages'],['g',days.size,'days logged'],['r',Math.round(dv),(S.cfg.units==='mi'?'mi':'km')+' of trail'],
+    ['g',E.reduce((s,e)=>s+(e.photos?.length||0),0),'photos'],['r',Math.round(secs/60)+'m','of your voice'],
+    ['g',words.toLocaleString(),'words'],['r',streak(days),'day streak'],['g',S.trips.length,'trips']
+  ].map(([c,v,l])=>`<div class="stat ${c}"><b>${v}</b><span>${l}</span></div>`).join('');
+  const tally={};E.forEach(e=>{if(e.place)tally[e.place]=(tally[e.place]||0)+1});
+  const top=Object.entries(tally).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  $('#topPlaces').innerHTML=top.length?top.map(([p,n])=>`<div class="phr"><div class="a" style="font-family:var(--disp);font-size:19px">${esc(p)}</div><span class="mono" style="color:var(--red)">${n}×</span></div>`).join(''):'<p style="color:var(--ink-2)">Pin a few pages and your regular haunts show up here.</p>';
+}
+function streak(set){let n=0,d=new Date();d.setHours(0,0,0,0);
+  if(!set.has(d.getTime()))d.setDate(d.getDate()-1);
+  while(set.has(d.getTime())){n++;d.setDate(d.getDate()-1)}return n}
+$('#btnPrint').onclick=()=>window.print();
+
+/* ---------- selects & settings ---------- */
+function buildSelects(){
+  const opts=S.trips.map(t=>`<option value="${t.id}">${esc(t.name||t.place)}</option>`).join('');
+  $('#mapTrip').innerHTML=`<option value="all">Everywhere</option>`+opts;$('#mapTrip').value=S.mapTrip;
+  $('#trLang').innerHTML=LANGS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');$('#trLang').value=S.cfg.lang;
+  $('#sLang').innerHTML=$('#trLang').innerHTML;$('#sLang').value=S.cfg.lang;
+  $('#sStt').innerHTML=STT.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');$('#sStt').value=S.cfg.stt;
+  $('#sUnits').innerHTML=['km','mi'].map(u=>`<button class="pick ${S.cfg.units===u?'on':''}" data-u="${u}">${u}</button>`).join('');
+  $$('#sUnits .pick').forEach(b=>b.onclick=()=>{S.cfg.units=b.dataset.u;buildSelects()});
+}
+$('#trLang').onchange=async e=>{S.cfg.lang=e.target.value;await put('kv',{k:'cfg',v:S.cfg});buildSelects()};
+$('#btnSet').onclick=()=>{buildSelects();openSheet('#shSet')};
+$('#sSave').onclick=async()=>{
+  S.cfg.lang=$('#sLang').value;S.cfg.stt=$('#sStt').value;
+  await put('kv',{k:'cfg',v:S.cfg});buildSelects();closeSheets();toast('Settings saved.');
+};
+
+/* ---------- backup ---------- */
+$('#btnBak').onclick=()=>openSheet('#shBak');
+const b64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)});
+$('#btnDown').onclick=async()=>{
+  $('#btnDown').textContent='Packing…';
+  const blobs=[];for(const r of await all('blobs'))blobs.push({id:r.id,d:await b64(r.blob)});
+  const data={app:'waypoint',v:2,at:Date.now(),entries:S.entries,trips:S.trips,phrases:S.phrases,cfg:S.cfg,blobs};
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
+  a.download=`waypoint-${new Date().toISOString().slice(0,10)}.json`;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  $('#btnDown').textContent='Export everything';toast('Backup downloaded.');
+};
+$('#btnUp').onclick=()=>$('#fBak').click();
+$('#fBak').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const d=JSON.parse(await f.text());
+    if(d.app!=='waypoint')throw new Error('format');
+    for(const b of d.blobs||[]){const r=await fetch(b.d);await put('blobs',{id:b.id,blob:await r.blob()})}
+    const have=new Set(S.entries.map(x=>x.id));
+    for(const en of d.entries||[])if(!have.has(en.id)){await put('entries',en);S.entries.push(en)}
+    const ht=new Set(S.trips.map(t=>t.id));
+    for(const t of d.trips||[])if(!ht.has(t.id))S.trips.push(t);
+    const hp=new Set(S.phrases.map(p=>p.id));
+    for(const p of d.phrases||[])if(!hp.has(p.id))S.phrases.push(p);
+    await put('kv',{k:'trips',v:S.trips});await put('kv',{k:'phrases',v:S.phrases});
+    S.entries.sort((a,b)=>b.ts-a.ts);buildSelects();closeSheets();
+    runLoader(()=>{go('trips');toast(`Restored ${(d.entries||[]).length} pages.`)});
+  }catch(err){toast("That file isn't a Waypoint backup.")}
+  e.target.value='';
+};
+
+boot();
+</script>
+</body>
+</html>
