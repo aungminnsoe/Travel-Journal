@@ -195,8 +195,19 @@ select.inp{appearance:none}
   transform:translate(-50%,-50%) rotate(var(--r));box-shadow:0 9px 22px rgba(50,52,40,.26)}
 .cluster .cp img{width:100%;display:block;aspect-ratio:1/1.12;object-fit:cover;background:#D6D3C4}
 .cluster .cp .tape{width:56%;height:15px;top:-7px;left:22%;transform:rotate(-5deg)}
-.cluster .more{position:absolute;right:1%;bottom:1%;z-index:9;background:var(--black);color:#F5F2E8;
-  font-family:var(--mono);font-size:11px;padding:5px 9px;border-radius:99px}
+.cluster .cp figcaption{font-family:var(--hand);font-size:17px;line-height:1.15;text-align:center;padding:5px 2px 0}
+.cluster.arr{touch-action:none}
+.cluster.arr .cp{cursor:grab;touch-action:none}
+.cluster.arr .cp.sel{outline:2.5px solid var(--red);outline-offset:3px;cursor:grabbing}
+.arena{background:var(--canvas);border-radius:14px;padding:14px;margin-top:12px;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:30px 30px}
+.arrbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:12px;
+  background:var(--card);border:1px solid var(--line);border-radius:13px}
+.arrbar .sq{width:38px;height:38px;border-radius:11px;border:1px solid var(--line);background:var(--paper);
+  display:grid;place-items:center;font-family:var(--mono);font-size:15px;flex:none}
+#pickMap{height:300px;height:min(42dvh,380px);border-radius:14px;border:1px solid var(--line);background:var(--canvas)}
+.pickdot{width:24px;height:24px;border-radius:50%;background:var(--red);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 audio{width:100%;margin-top:11px}
 .phr{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center}
 .phr .a{font-family:"Noto Sans Myanmar",var(--body);font-size:17px}
@@ -337,6 +348,8 @@ audio{width:100%;margin-top:11px}
   </div>
   <div id="recBox"></div>
 
+  <span class="lab">When — change this for a back-dated page</span>
+  <input class="inp" id="fWhen" type="datetime-local">
   <span class="lab">Headline</span>
   <input class="inp" id="fTitle" placeholder="Gion in the rain">
   <span class="lab">The note</span>
@@ -354,6 +367,7 @@ audio{width:100%;margin-top:11px}
   <span class="lab">Where</span>
   <div class="row">
     <button class="btn" id="btnPin"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>Pin me here</button>
+    <button class="btn" id="btnPickMap"><svg viewBox="0 0 24 24"><path d="M9 20l-6 2V6l6-2 6 2 6-2v16l-6 2-6-2zM9 4v16M15 6v16"/></svg>Set on map</button>
     <input class="inp" id="fPlace" placeholder="Or name the place" style="flex:1;min-width:150px;width:auto">
   </div>
   <div class="pinbox" id="pinBox" hidden></div>
@@ -364,8 +378,6 @@ audio{width:100%;margin-top:11px}
   <input class="inp" id="fSteps" type="number" inputmode="numeric" placeholder="8300">
   <span class="lab">Trip</span>
   <select class="inp" id="fTrip"></select>
-  <span class="lab">When</span>
-  <input class="inp" id="fWhen" type="datetime-local">
 
   <div class="sticky">
     <button class="btn dgr" id="btnDel" hidden>Delete</button>
@@ -415,6 +427,32 @@ audio{width:100%;margin-top:11px}
     <button class="btn" id="btnUp">Import a backup</button>
   </div>
   <input type="file" id="fBak" accept="application/json" hidden>
+</div>
+
+<div class="sheet" id="shArr" role="dialog" aria-label="Arrange photos">
+  <div class="grab"></div><h2>Arrange the page</h2>
+  <p style="color:var(--ink-2);font-size:13.5px;margin:4px 0 0">Drag a photo to move it. Tap one to write on it or change its size.</p>
+  <div class="arena" id="arrArena"></div>
+  <div class="arrbar" id="arrBar" hidden></div>
+  <div class="sticky"><button class="btn" id="arrReset">Reset</button>
+    <button class="btn" id="arrCancel">Cancel</button>
+    <button class="btn pri" id="arrSave">Save layout</button></div>
+</div>
+
+<div class="sheet" id="shPick" role="dialog" aria-label="Pick a place">
+  <div class="grab"></div><h2>Where was this?</h2>
+  <p style="color:var(--ink-2);font-size:13.5px;margin:4px 0 0">Search a place, tap the map, or paste coordinates. Works for somewhere you were last year.</p>
+  <div class="row" style="margin-top:14px">
+    <input class="inp" id="pkQ" placeholder="Hanamikoji, Kyoto" style="flex:1;width:auto">
+    <button class="btn" id="pkGo">Find</button>
+  </div>
+  <div id="pkList"></div>
+  <div id="pickMap" style="margin-top:12px"></div>
+  <p class="mono" id="pkRead" style="margin:10px 0 0;color:var(--red)"></p>
+  <span class="lab">Or paste coordinates</span>
+  <input class="inp" id="pkLL" placeholder="35.0035, 135.7788">
+  <div class="sticky"><button class="btn" id="pkCancel">Cancel</button>
+    <button class="btn pri" id="pkUse">Use this spot</button></div>
 </div>
 
 <div class="sheet" id="shShare" role="dialog" aria-label="Share">
@@ -653,12 +691,30 @@ const SLOTS={1:[[50,50,76,-2]],
  5:[[24,28,37,-7],[60,25,35,4],[80,57,34,-3],[42,61,39,3],[22,77,33,6]],
  6:[[24,26,34,-7],[58,23,32,4],[82,47,31,-3],[40,55,36,3],[70,75,33,5],[20,75,31,7]]};
 const SLOTH={1:118,2:80,3:94,4:102,5:108,6:112};
-function cluster(photos){
-  const n=Math.min(photos.length,6),sl=SLOTS[n],extra=photos.length-n;
-  return `<div class="cluster" style="padding-top:${SLOTH[n]}%">`+
-    sl.map((q,i)=>`<figure class="cp" data-open-photo="${photos[i].id}" style="left:${q[0]}%;top:${q[1]}%;width:${q[2]}%;--r:${q[3]}deg;z-index:${i+1}">
-      <span class="tape ${i%2?'b':''}"></span><img data-blob="${photos[i].id}" alt=""></figure>`).join('')+
-    (extra>0?`<span class="more">+${extra}</span>`:'')+`</div>`;
+function gcols(n){return Math.min(4,Math.ceil(Math.sqrt(n)))}
+function slots(n){
+  if(SLOTS[n])return SLOTS[n];
+  const cols=gcols(n),rows=Math.ceil(n/cols),w=Math.min(46,(100/cols)*1.12),out=[];
+  for(let i=0;i<n;i++){const c=i%cols,r=Math.floor(i/cols);
+    out.push([(c+0.5)*(100/cols)+((hashN('x'+i)%9)-4)*0.8,
+              (r+0.5)*(100/rows)+((hashN('y'+i)%9)-4)*0.6,
+              w,((hashN('r'+i)%13)-6)])}
+  return out;
+}
+function slotsH(n){
+  if(SLOTH[n])return SLOTH[n];
+  const cols=gcols(n),rows=Math.ceil(n/cols);
+  return rows*(Math.min(46,(100/cols)*1.12)*1.12)*0.94+12;
+}
+/* A photo may carry its own x/y/width/tilt once it's been arranged by hand. */
+function pgeom(p,q){return {x:p.x??q[0],y:p.y??q[1],w:p.w??q[2],r:p.r??q[3]}}
+function cluster(photos,arr){
+  const n=photos.length,sl=slots(n),Hp=slotsH(n);
+  return `<div class="cluster${arr?' arr':''}" style="padding-top:${Hp}%">`+
+    photos.map((p,i)=>{const g=pgeom(p,sl[i]);
+      return `<figure class="cp" data-i="${i}" data-open-photo="${p.id}" style="left:${g.x}%;top:${g.y}%;width:${g.w}%;--r:${g.r}deg;z-index:${p.z||i+1}">
+      <span class="tape ${i%2?'b':''}"></span><img data-blob="${p.id}" alt="">
+      ${p.cap?`<figcaption>${esc(p.cap)}</figcaption>`:''}</figure>`}).join('')+`</div>`;
 }
 function renderDay(t,n){
   freeURLs();
@@ -701,7 +757,7 @@ function renderDay(t,n){
         <figcaption>${esc(e.title||fmtShort(e.ts))}</figcaption></figure>`;
       side++;
     }else if(eph.length>1){
-      h+=`<div style="width:100%">${cluster(eph)}</div>`;
+      h+=`<div style="width:100%" data-cl="${e.id}">${cluster(eph)}</div>`;
       h+=`<div class="hand" style="width:100%;text-align:center;font-size:23px;margin:-2px 0 10px">${esc(e.title||fmtShort(e.ts))}</div>`;
       side++;
     }
@@ -726,6 +782,7 @@ function renderDay(t,n){
   $('#dayShare').onclick=()=>openShare('day',n);
   loadThumbs($('#tripBody'));
   $$('#tripBody [data-entry]').forEach(b=>b.onclick=()=>viewEntry(b.dataset.entry));
+  $$('#tripBody [data-cl]').forEach(w=>w.onclick=()=>viewEntry(w.dataset.cl));
   $$('#tripBody [data-play]').forEach(async b=>{
     b.onclick=async()=>{
       const r=await get('blobs',b.dataset.play);if(!r)return;
@@ -778,7 +835,7 @@ $('#btnPin').onclick=()=>{
   const b=$('#btnPin');b.disabled=true;toast('Getting a fix…');
   navigator.geolocation.getCurrentPosition(async p=>{
     b.disabled=false;draft.lat=p.coords.latitude;draft.lng=p.coords.longitude;drawPin();
-    const [pl,wx]=await Promise.all([revGeo(draft.lat,draft.lng),getWx(draft.lat,draft.lng)]);
+    const [pl,wx]=await Promise.all([revGeo(draft.lat,draft.lng),getWx(draft.lat,draft.lng,draft.ts)]);
     if(pl&&!$('#fPlace').value){draft.place=pl;$('#fPlace').value=pl}
     draft.weather=wx;drawPin();
   },()=>{b.disabled=false;toast('No fix — check location permission.')},{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
@@ -788,11 +845,85 @@ async function revGeo(lat,lng){try{
   const j=await r.json(),a=j.address||{};
   return [a.suburb||a.neighbourhood||a.village||a.town||a.city_district,a.city||a.state].filter(Boolean).slice(0,2).join(', ')||j.name||'';
 }catch(e){return ''}}
-async function getWx(lat,lng){try{
-  const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code`);
-  const j=await r.json();return {t:j.current.temperature_2m,code:j.current.weather_code};
-}catch(e){return null}}
+async function getWx(lat,lng,ts){
+  const back=Math.round((dayKey(Date.now())-dayKey(ts||Date.now()))/864e5);
+  try{
+    if(back<=0){
+      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code`);
+      const j=await r.json();return {t:j.current.temperature_2m,code:j.current.weather_code};
+    }
+    // Past dates come from the archive; the forecast endpoint only reaches back about 90 days.
+    const d=new Date(dayKey(ts)),iso=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const base=back<=90?'https://api.open-meteo.com/v1/forecast':'https://archive-api.open-meteo.com/v1/archive';
+    const r=await fetch(`${base}?latitude=${lat}&longitude=${lng}&start_date=${iso}&end_date=${iso}&daily=temperature_2m_max,weather_code&timezone=auto`);
+    const j=await r.json();
+    const t=j&&j.daily&&j.daily.temperature_2m_max&&j.daily.temperature_2m_max[0];
+    if(t!=null)return {t,code:(j.daily.weather_code&&j.daily.weather_code[0])||0};
+  }catch(e){}
+  return null;
+}
 
+let pmap=null,pmark=null,psel=null;
+$('#btnPickMap').onclick=()=>{
+  if(!window.L)return toast('Map library not loaded — check the connection.');
+  closeSheets();
+  setTimeout(()=>{openSheet('#shPick');setTimeout(initPicker,180)},200);
+};
+function initPicker(){
+  const last=S.entries.find(e=>e.lat!=null);
+  const start=draft.lat!=null?[draft.lat,draft.lng]:(last?[last.lat,last.lng]:[1.3521,103.8198]);
+  const zoom=draft.lat!=null||last?14:11;
+  if(!pmap){
+    pmap=L.map('pickMap').setView(start,zoom);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      {attribution:'&copy; OpenStreetMap, &copy; CARTO',maxZoom:19,subdomains:'abcd'}).addTo(pmap);
+    pmap.on('click',ev=>setPick(ev.latlng.lat,ev.latlng.lng,'',true));
+    try{new ResizeObserver(()=>pmap.invalidateSize()).observe($('#pickMap'))}catch(e){}
+  }
+  [40,240].forEach(ms=>setTimeout(()=>{try{pmap.invalidateSize()}catch(e){}},ms));
+  pmap.setView(start,zoom);
+  setPick(start[0],start[1],draft.place||'',false);
+}
+function setPick(lat,lng,place,lookup){
+  psel={lat,lng,place:place||''};
+  const ll=[lat,lng];
+  if(pmark)pmark.setLatLng(ll);
+  else pmark=L.marker(ll,{icon:L.divIcon({className:'',html:'<div class="pickdot"></div>',iconSize:[24,24],iconAnchor:[12,12]})}).addTo(pmap);
+  const show=p=>$('#pkRead').textContent=`${lat.toFixed(5)}, ${lng.toFixed(5)}${p?' · '+p:''}`;
+  show(psel.place);
+  if(lookup)revGeo(lat,lng).then(p=>{if(p&&psel&&psel.lat===lat){psel.place=p;show(p)}});
+}
+$('#pkGo').onclick=async()=>{
+  const q=$('#pkQ').value.trim();if(!q)return;
+  $('#pkGo').textContent='…';$('#pkGo').disabled=true;
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(q)}`);
+    const j=await r.json();
+    $('#pkList').innerHTML=j.length?j.map((hit,i)=>`<button class="btn" data-h="${i}" style="width:100%;justify-content:flex-start;text-align:left;margin-top:8px">${esc(hit.display_name.slice(0,90))}</button>`).join(''):'<p style="color:var(--ink-2);margin-top:10px">Nothing found.</p>';
+    $$('#pkList [data-h]').forEach(b=>b.onclick=()=>{
+      const hit=j[+b.dataset.h],la=+hit.lat,lo=+hit.lon;
+      pmap.setView([la,lo],15);
+      setPick(la,lo,hit.display_name.split(',').slice(0,2).join(',').trim(),false);
+      $('#pkList').innerHTML='';$('#pkQ').value='';
+    });
+  }catch(e){toast('Search needs a connection.')}
+  $('#pkGo').textContent='Find';$('#pkGo').disabled=false;
+};
+$('#pkLL').onchange=()=>{
+  const m=$('#pkLL').value.split(/[,\s]+/).map(Number).filter(v=>isFinite(v));
+  if(m.length>=2&&Math.abs(m[0])<=90&&Math.abs(m[1])<=180){pmap.setView([m[0],m[1]],15);setPick(m[0],m[1],'',true)}
+  else toast('Use the form: 35.0035, 135.7788');
+};
+const backToEditor=()=>{closeSheets();setTimeout(()=>{fillEditor();openSheet('#shEdit')},240)};
+$('#pkCancel').onclick=backToEditor;
+$('#pkUse').onclick=async()=>{
+  if(!psel)return;
+  draft.lat=psel.lat;draft.lng=psel.lng;
+  if(psel.place&&!$('#fPlace').value.trim()){draft.place=psel.place;$('#fPlace').value=psel.place}
+  backToEditor();
+  draft.weather=await getWx(draft.lat,draft.lng,draft.ts);
+  if($('#shEdit').classList.contains('on'))drawPin();
+};
 $('#btnCam').onclick=()=>$('#fCam').click();
 $('#btnLib').onclick=()=>$('#fLib').click();
 $('#fCam').onchange=e=>addPhotos(e.target.files);
@@ -907,13 +1038,95 @@ $('#btnSave').onclick=async()=>{
   if(S.view==='trip')renderTrip();else renderTrips();
   toast(was?'Saved to the page.':'Page updated.');
 };
-$('#btnDel').onclick=async()=>{
-  if(!confirm('Delete this page, its photos and its memo?'))return;
-  for(const p of draft.photos||[])await del('blobs',p.id);
-  if(draft.audio)await del('blobs',draft.audio.id);
-  await del('entries',draft.id);
-  S.entries=S.entries.filter(x=>x.id!==draft.id);
+async function deleteEntry(id){
+  const e=S.entries.find(v=>v.id===id);if(!e)return;
+  if(!confirm('Delete this page, its photos and its memo? This cannot be undone.'))return;
+  for(const p of e.photos||[])await del('blobs',p.id);
+  if(e.audio)await del('blobs',e.audio.id);
+  await del('entries',id);
+  S.entries=S.entries.filter(v=>v.id!==id);
   closeSheets();S.view==='trip'?renderTrip():renderTrips();toast('Deleted.');
+}
+$('#btnDel').onclick=()=>deleteEntry(draft.id);
+
+/* ---------- arrange photos ---------- */
+let arrE=null,arrP=null,arrSel=-1;
+function openArrange(id){
+  const e=S.entries.find(v=>v.id===id);
+  if(!e||!(e.photos||[]).length)return toast('No photos on this page yet.');
+  arrE=e;arrP=JSON.parse(JSON.stringify(e.photos));arrSel=-1;
+  openSheet('#shArr');drawArena();
+}
+async function drawArena(){
+  const a=$('#arrArena');
+  if(!arrP.length){a.innerHTML='<p style="color:var(--ink-2);text-align:center;padding:24px 0">No photos left.</p>';$('#arrBar').hidden=true;return}
+  a.innerHTML=cluster(arrP,true);
+  await loadThumbs(a);
+  bindDrag();drawArrBar();
+}
+function bindDrag(){
+  const box=$('.cluster',$('#arrArena'));if(!box)return;
+  $$('.cp',box).forEach(fig=>{
+    const i=+fig.dataset.i;
+    fig.classList.toggle('sel',i===arrSel);
+    let sx,sy,ox,oy,W,H;
+    fig.onpointerdown=ev=>{
+      ev.preventDefault();
+      const r=box.getBoundingClientRect();W=r.width;H=r.height;
+      sx=ev.clientX;sy=ev.clientY;
+      const g=pgeom(arrP[i],slots(arrP.length)[i]);ox=g.x;oy=g.y;
+      try{fig.setPointerCapture(ev.pointerId)}catch(e){}
+      arrSel=i;$$('.cp',box).forEach(f=>f.classList.toggle('sel',+f.dataset.i===i));
+      drawArrBar();
+    };
+    fig.onpointermove=ev=>{
+      if(sx===undefined||!W||!H)return;
+      const g=pgeom(arrP[i],slots(arrP.length)[i]);
+      arrP[i].x=Math.max(5,Math.min(95,ox+(ev.clientX-sx)/W*100));
+      arrP[i].y=Math.max(5,Math.min(95,oy+(ev.clientY-sy)/H*100));
+      arrP[i].w=g.w;arrP[i].r=g.r;
+      fig.style.left=arrP[i].x+'%';fig.style.top=arrP[i].y+'%';
+    };
+    const up=ev=>{sx=undefined;try{fig.releasePointerCapture(ev.pointerId)}catch(e){}};
+    fig.onpointerup=up;fig.onpointercancel=up;
+  });
+}
+function drawArrBar(){
+  const bar=$('#arrBar');
+  if(arrSel<0||!arrP[arrSel]){bar.hidden=true;return}
+  bar.hidden=false;
+  const p=arrP[arrSel];
+  bar.innerHTML=`<input class="inp" id="arrCap" placeholder="Write on this photo" value="${esc(p.cap||'')}" style="flex:1 1 100%;width:auto">
+    <button class="sq" data-a="sm" aria-label="Smaller">−</button><button class="sq" data-a="lg" aria-label="Bigger">+</button>
+    <button class="sq" data-a="rl" aria-label="Tilt left">↺</button><button class="sq" data-a="rr" aria-label="Tilt right">↻</button>
+    <button class="sq" data-a="fr" aria-label="Bring to front">↑</button>
+    <button class="btn dgr" data-a="rm" style="margin-left:auto;padding:9px 13px">Remove</button>`;
+  $('#arrCap').oninput=ev=>{p.cap=ev.target.value};
+  $('#arrCap').onchange=()=>drawArena();
+  $$('#arrBar [data-a]').forEach(b=>b.onclick=()=>{
+    const g=pgeom(p,slots(arrP.length)[arrSel]),a=b.dataset.a;
+    if(a==='rm'){
+      if(!confirm('Take this photo off the page?'))return;
+      arrP.splice(arrSel,1);arrSel=-1;drawArena();return;
+    }
+    if(a==='sm')p.w=Math.max(14,g.w-5);
+    if(a==='lg')p.w=Math.min(92,g.w+5);
+    if(a==='rl')p.r=g.r-4;
+    if(a==='rr')p.r=g.r+4;
+    if(a==='fr')p.z=Math.max(0,...arrP.map(q=>q.z||0))+1;
+    p.x=g.x;p.y=g.y;if(p.w==null)p.w=g.w;if(p.r==null)p.r=g.r;
+    drawArena();
+  });
+}
+$('#arrReset').onclick=()=>{arrP=arrP.map(q=>({id:q.id,cap:q.cap}));arrSel=-1;drawArena()};
+$('#arrCancel').onclick=()=>closeSheets();
+$('#arrSave').onclick=async()=>{
+  const kept=new Set(arrP.map(q=>q.id));
+  for(const q of (arrE.photos||[]))if(!kept.has(q.id))await del('blobs',q.id);
+  arrE.photos=arrP;
+  await put('entries',{...arrE});
+  const i=S.entries.findIndex(v=>v.id===arrE.id);if(i>=0)S.entries[i]={...arrE};
+  closeSheets();S.view==='trip'?renderTrip():renderTrips();toast('Layout saved.');
 };
 
 /* ---------- entry detail ---------- */
@@ -927,11 +1140,18 @@ async function viewEntry(id){
     ${e.note?`<p class="hand" style="margin:16px 0 0;white-space:pre-wrap">${esc(e.note)}</p>`:''}
     ${e.tags?.length?`<div style="margin-top:12px">${e.tags.map(x=>`<span class="rtag">#${esc(x)}</span>`).join('')}</div>`:''}
     <div id="vAudio"></div><div id="vGal"></div>
-    <div class="sticky"><button class="btn" id="vEdit" style="flex:1">Edit</button>
-      ${e.lat!=null?`<button class="btn" id="vMap">Show on trail</button>`:''}</div>`;
+    <div class="row" style="margin-top:18px">
+      ${e.photos&&e.photos.length>1?`<button class="btn" id="vArr" style="flex:1">Arrange photos</button>`:''}
+      ${e.lat!=null?`<button class="btn" id="vMap" style="flex:1">Show on trail</button>`:''}</div>
+    <div class="sticky"><button class="btn dgr" id="vDel">Delete</button>
+      <button class="btn" id="vShare">Share</button>
+      <button class="btn pri" id="vEdit">Edit</button></div>`;
   openSheet('#shView');
   $('#vEdit').onclick=()=>{draft=JSON.parse(JSON.stringify(e));closeSheets();setTimeout(()=>{fillEditor();openSheet('#shEdit')},270)};
   if(e.lat!=null)$('#vMap').onclick=()=>{closeSheets();go('map');setTimeout(()=>map&&map.setView([e.lat,e.lng],15),360)};
+  $('#vDel').onclick=()=>deleteEntry(e.id);
+  $('#vShare').onclick=()=>{closeSheets();setTimeout(()=>openShare('note',e.id),240)};
+  if($('#vArr'))$('#vArr').onclick=()=>{closeSheets();setTimeout(()=>openArrange(e.id),240)};
   if(e.audio){
     const r=await get('blobs',e.audio.id);
     if(r){const a=document.createElement('audio');a.controls=true;a.src=url(r.blob);$('#vAudio').appendChild(a);
@@ -1226,21 +1446,30 @@ function polaroid(x,img,cx,top,pw,rot,caption,s){
   tape(x,cx-pw*0.18,top+4*s,96*s,30*s,rot-0.09,(hashN(caption||'a')%2)===0);
   return top+ph*Math.cos(Math.abs(rot))+18*s;
 }
-function polaroidAt(x,img,cx,cy,pw,rot,s){
-  const p=Math.max(5*s,pw*0.055),iw=pw-p*2,ih=iw*1.12,ph=p*1.7+ih;
+function polaroidAt(x,img,cx,cy,pw,rot,s,cap){
+  const p=Math.max(5*s,pw*0.055),iw=pw-p*2,ih=iw*1.12;
+  const fs=Math.max(19*s,pw*0.11),lh=fs*1.18;
+  let lines=[];
+  if(cap){x.font=`600 ${fs}px Caveat`;ls(x,'0px');lines=wrapT(x,cap,iw).slice(0,2)}
+  const ph=p*1.7+ih+(lines.length?lines.length*lh+4*s:0);
   x.save();x.translate(cx,cy);x.rotate(rot);
   shadowOn(x,s);x.fillStyle='#F8F5EB';x.fillRect(-pw/2,-ph/2,pw,ph);shadowOff(x);
   if(img)cover(x,img,-pw/2+p,-ph/2+p,iw,ih);
   else{x.fillStyle='#D6D3C4';x.fillRect(-pw/2+p,-ph/2+p,iw,ih)}
+  if(lines.length){
+    x.fillStyle='#33332C';x.textAlign='center';x.font=`600 ${fs}px Caveat`;
+    lines.forEach((l,i)=>x.fillText(l,0,-ph/2+p+ih+lh*(i+0.9)));
+  }
   x.restore();
   tape(x,cx-pw*0.13,cy-ph/2+4*s,pw*0.46,pw*0.115,rot-0.09,Math.round(pw/3)%2===0);
   return ph;
 }
-function collage(x,imgs,cx,top,bandW,s){
-  const n=Math.min(imgs.length,6),sl=SLOTS[n],bh=bandW*SLOTH[n]/100;
-  for(let i=0;i<n;i++){const q=sl[i];
-    polaroidAt(x,imgs[i],cx-bandW/2+bandW*q[0]/100,top+bh*q[1]/100,bandW*q[2]/100,q[3]*Math.PI/180,s)}
-  return top+bh;
+function collage(x,imgs,photos,cx,top,bandW,s){
+  const n=imgs.length,sl=slots(n),bh=bandW*slotsH(n)/100;
+  for(let i=0;i<n;i++){const g=pgeom(photos[i]||{},sl[i]);
+    polaroidAt(x,imgs[i],cx-bandW/2+bandW*g.x/100,top+bh*g.y/100,bandW*g.w/100,
+      g.r*Math.PI/180,s,photos[i]&&photos[i].cap)}
+  return top+bh*1.05;
 }
 function notecard(x,left,top,w,label,body,s,maxH){
   const p=26*s,lh=42*s;
@@ -1298,13 +1527,13 @@ async function drawCard(){
     x.fillText(`${fmtShort(t.start)} – ${fmtShort(addDays(t.start,total-1))}`.toUpperCase(),M,y+28*s);
     ls(x,'0px');y+=76*s;
 
-    const ph=[];for(const e of en)for(const p of (e.photos||[]))ph.push(p.id);
+    const ph=[];for(const e of en)for(const p of (e.photos||[]))ph.push(p);
     const avail=H-foot-y-(158*s)-(28*s);
     if(ph.length&&avail>190*s){
-      const nn=Math.min(ph.length,6),bandW=Math.min(CW,avail/(SLOTH[nn]/100));
+      const nn=Math.min(ph.length,9),bandW=Math.min(CW,avail/(slotsH(nn)/100));
       const imgs=[];
-      for(let i=0;i<nn;i++){const im=await blobImg(ph[i]);imgs.push(im);if(im)opened.push(im)}
-      y=collage(x,imgs,M+CW/2,y,bandW,s)+16*s;
+      for(let i=0;i<nn;i++){const im=await blobImg(ph[i].id);imgs.push(im);if(im)opened.push(im)}
+      y=collage(x,imgs,ph.slice(0,nn),M+CW/2,y,bandW,s)+16*s;
     }
     let km=0;const pts=en.filter(e=>e.lat!=null);
     for(let i=1;i<pts.length;i++)km+=hav(pts[i-1],pts[i]);
@@ -1328,29 +1557,40 @@ async function drawCard(){
       wrapT(x,places.join(' · '),CW).slice(0,2).forEach((l,i)=>x.fillText(l,M,y+40*s+i*48*s));
     }
   }else{
-    const n=+shr.day,d=new Date(addDays(t.start,n-1)),total=tripDays(t);
-    const rows=tripEntries(t.id).filter(e=>dayKey(e.ts)===dayKey(addDays(t.start,n-1)));
-    x.fillText((`Trip / ${t.place||t.name} · Day ${pad(n)} / ${pad(total)}`).toUpperCase().slice(0,40),M,y);
+    let rows,crumb,bigNum,dateTxt,d;
+    if(shr.mode==='note'){
+      const e0=S.entries.find(v=>v.id===shr.eid)||{ts:Date.now(),photos:[]};
+      rows=[e0];d=new Date(e0.ts);
+      const tt=S.trips.find(v=>v.id===e0.tripId);
+      crumb=tt?`Trip / ${tt.place||tt.name} · Day ${pad(Math.max(1,dayNo(tt,e0.ts)))}`:'Waypoint / A page';
+      bigNum=pad(d.getDate());dateTxt=fmtD(e0.ts);
+    }else{
+      const nn=+shr.day;d=new Date(addDays(t.start,nn-1));
+      rows=tripEntries(t.id).filter(e=>dayKey(e.ts)===dayKey(addDays(t.start,nn-1)));
+      crumb=`Trip / ${t.place||t.name} · Day ${pad(nn)} / ${pad(tripDays(t))}`;
+      bigNum=pad(nn);dateTxt=fmtD(addDays(t.start,nn-1));
+    }
+    x.fillText(crumb.toUpperCase().slice(0,40),M,y);
     ls(x,'0px');y+=44*s;
 
     const R=(tight?56:74)*s;
     x.save();x.setLineDash([11*s,10*s]);x.strokeStyle='rgba(60,60,45,.55)';x.lineWidth=3.4*s;
     x.beginPath();x.arc(M+R,y+R,R,0,7);x.stroke();x.restore();
     x.textAlign='center';x.fillStyle='#E0522F';x.font=`400 ${(tight?64:84)*s}px "Instrument Serif"`;
-    x.fillText(pad(n),M+R,y+R+(tight?8:12)*s);
+    x.fillText(bigNum,M+R,y+R+(tight?8:12)*s);
     x.fillStyle='#5B5B4C';x.font=`500 ${(tight?17:20)*s}px "DM Mono"`;ls(x,'0.2em');
     x.fillText(DOW[d.getDay()],M+R,y+R+(tight?34:46)*s);ls(x,'0px');
 
     const place=[...new Set(rows.map(r=>r.place).filter(Boolean))][0]||'';
     const wx=rows.find(e=>e.weather)?.weather;
     x.textAlign='left';x.fillStyle='#2F3A28';x.font=`400 ${(tight?46:58)*s}px "Instrument Serif"`;
-    x.fillText(fmtD(addDays(t.start,n-1)),M+R*2+34*s,y+R-6*s);
+    x.fillText(dateTxt,M+R*2+34*s,y+R-6*s);
     x.fillStyle='#6E6E60';x.font=`500 ${(tight?19:22)*s}px "DM Mono"`;ls(x,'0.12em');
     x.fillText(((place||'—')+(wx?`  ·  ${Math.round(wx.t)}°`:'')).toUpperCase().slice(0,24),M+R*2+34*s,y+R+(tight?26:34)*s);
     ls(x,'0px');
     y+=R*2+(tight?18:34)*s;
 
-    const photos=[];for(const e of rows)for(const p of (e.photos||[]))photos.push({id:p.id,cap:e.title});
+    const photos=[];for(const e of rows)for(const p of (e.photos||[]))photos.push({...p,cap:p.cap||e.title});
     const body=(rows.find(e=>(e.note||e.audio?.transcript))||{});
     const text=(body.note||body.audio?.transcript||'').trim();
     const tags=[...new Set(rows.flatMap(e=>e.tags||[]))];
@@ -1365,15 +1605,11 @@ async function drawCard(){
         y=polaroid(x,im,M+pw/2+CW*0.14,y,pw,0.028,photos[0].cap,s);
       }
     }else if(photos.length>1){
-      const nn=Math.min(photos.length,6),bandW=Math.min(CW*0.98,room/(SLOTH[nn]/100));
+      const nn=Math.min(photos.length,9),bandW=Math.min(CW*0.98,room/(slotsH(nn)/100));
       if(bandW>=CW*0.34){
         const imgs=[];
         for(let i=0;i<nn;i++){const im=await blobImg(photos[i].id);imgs.push(im);if(im)opened.push(im)}
-        y=collage(x,imgs,M+CW/2,y,bandW,s)+12*s;
-        if(photos[0].cap){
-          x.fillStyle='#33332C';x.font=`600 ${40*s}px Caveat`;x.textAlign='center';ls(x,'0px');
-          x.fillText(wrapT(x,photos[0].cap,CW)[0]||'',M+CW/2,y+10*s);y+=46*s;
-        }
+        y=collage(x,imgs,photos.slice(0,nn),M+CW/2,y,bandW,s)+12*s;
       }
     }
     if(text&&y<H-foot-190*s)y=notecard(x,M,y+6*s,CW*0.94,'Note 01',text,s,H-foot-y-(tags.length?60*s:0)-30*s);
@@ -1402,11 +1638,18 @@ async function refreshPrev(){
     box.appendChild(im);
   }catch(e){box.innerHTML='<div class="warn">Couldn\'t draw the card. Try another format.</div>'}
 }
-function openShare(mode,day){
-  const t=S.trips.find(v=>v.id===S.openTrip);if(!t)return;
-  shr={mode,day,fmt:shr.fmt||'story',blob:null};
-  shr.name=`waypoint-${(t.place||t.name||'trip').toLowerCase().replace(/[^a-z0-9]+/g,'-')}${mode==='day'?'-day-'+pad(day):''}`;
-  $('#shShareTitle').textContent=mode==='trip'?'Share the trip':'Share this page';
+function openShare(mode,arg){
+  if(mode==='note'){
+    const e=S.entries.find(v=>v.id===arg);if(!e)return;
+    shr={mode,eid:arg,fmt:shr.fmt||'story',blob:null};
+    shr.name='waypoint-'+String(e.title||'page').toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,30);
+    $('#shShareTitle').textContent='Share this page';
+  }else{
+    const t=S.trips.find(v=>v.id===S.openTrip);if(!t)return;
+    shr={mode,day:arg,fmt:shr.fmt||'story',blob:null};
+    shr.name=`waypoint-${(t.place||t.name||'trip').toLowerCase().replace(/[^a-z0-9]+/g,'-')}${mode==='day'?'-day-'+pad(arg):''}`;
+    $('#shShareTitle').textContent=mode==='trip'?'Share the trip':'Share this day';
+  }
   $('#fmtRow').innerHTML=Object.entries(FMT).map(([k,v])=>
     `<button class="pick ${shr.fmt===k?'on':''}" data-f="${k}">${v[0]} · ${v[1]===v[2]?'1:1':(v[1]===1080&&v[2]===1920?'9:16':'4:5')}</button>`).join('');
   $$('#fmtRow .pick').forEach(b=>b.onclick=()=>{shr.fmt=b.dataset.f;
